@@ -32,12 +32,12 @@ Clear any level, pick a display name, and your score lands on the public leaderb
 - **submission time**: every row shows when the score was set, as relative time (3s ago → 4y ago)
 - **anti-cheat**: submissions include the raw click-timing; the server recomputes bpm/UR with the exact same level formula and rejects anything inconsistent (forged or physically impossible scores fail)
 
-The leaderboard API runs on **Cloudflare Pages Functions** (free tier) with KV storage, served from the same domain as the game. The game itself is fully static.
+The leaderboard API runs on **Cloudflare Pages Functions** (free tier) with a **D1** SQL database, served from the same domain as the game. D1 gives ~100k writes/day and 5M rows read/day on the free tier (the earlier KV version hit its 1,000/day list-operation cap on launch day), and keeps 30 days of point-in-time backup via Time Travel. The game itself is fully static.
 
 ### Hosting notes
 
 - `pages/` contains the Cloudflare Pages deployment: `site/` is the game copy and `functions/api/[[route]].js` serves the leaderboard API from the same domain. The API base URL is baked into `index.html` (override via `window.OSI_API_BASE`). If you change the game, copy `index.html` into `pages/site/` before running `npx wrangler pages deploy` from `pages/`.
-- The leaderboard is stored in Cloudflare KV, which is eventually consistent: a fresh score may take up to ~60s to appear for other viewers. This is normal.
+- Leaderboard reads come straight from D1 SQL (no cache lag like the old KV version); a fresh score is visible on the next refresh.
 - `workers/` contains a standalone Workers version of the same API (optional alternative hosting; note the workers.dev domain is blocked by some ISPs).
 - GitHub Pages serves the same static game automatically from `main`.
 

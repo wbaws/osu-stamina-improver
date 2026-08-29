@@ -1,17 +1,9 @@
 ﻿/**
- * osu! Stamina Improver — global leaderboard worker.
- * Free hosting on Cloudflare Workers free tier; data in a KV namespace.
- *
- * Endpoints:
- *   GET  /api/health        -> { ok: true }
- *   GET  /api/leaderboard   -> top players
- *   GET  /api/stats         -> global aggregate stats
- *   POST /api/submit        -> submit a cleared level (validated)
- *
- * Validation mirrors the game's own math (index.html): stream bpm =
- * (clicks/elapsedMs)*60000/4, UR = 10 * stdev(intervals), and the exact
- * levelSpec() formula. The client must send the raw click-time proof, and
- * the server recomputes everything — forged numbers are rejected.
+ * osu! Stamina Improver - global leaderboard (D1 edition).
+ * Storage: Cloudflare D1 (free tier ~100k writes/day, 5M rows read/day, zero list
+ * operations). Replaces the KV implementation whose 1,000/day list-op cap we
+ * exhausted on launch day. D1 Time Travel keeps 30 days of point-in-time backup.
+ * API shape and anti-cheat are identical to the KV version.
  */
 
 const CORS = {
@@ -29,9 +21,8 @@ const json = (obj, status = 200) =>
 
 const bad = (msg, status = 400) => json({ error: msg }, status);
 
-/* per-isolate 30s read cache: keeps leaderboard/stats well inside free-tier limits */
-const MEM = { lb: { at: 0, data: null }, stats: { at: 0, data: null } };
-const CACHE_TTL = 30000;
+const nowISO = () => new Date().toISOString();
+const keyFor = name => name.toLowerCase().replace(/[^a-z0-9_ -]/g, '');
 
 /* ---------------- level formula (mirror of index.html) ---------------- */
 function staminaSpec(cyc, k) {
@@ -118,6 +109,7 @@ function plausible(sub) {
   if (ur < 0 || ur > 1000) return false;
   return true;
 }
+
 /* immediate-replay guard: reject the exact same run payload twice in a row */
 async function bodyHash(sub) {
   const enc = new TextEncoder();
@@ -126,99 +118,87 @@ async function bodyHash(sub) {
   return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function loadAll(env) {
-  const entries = [];
-  let cursor = undefined;
-  do {
-    const page = await env.LEADERBOARD.list({ cursor });
-    for (const k of page.keys) {
-      const v = await env.LEADERBOARD.get(k.name, 'json');
-      if (v) entries.push(v);
-    }
-    cursor = page.list_complete ? undefined : page.cursor;
-  } while (cursor);
-  return entries;
+/* ---------------- row <-> entry mapping ---------------- */
+function rowToEntry(r) {
+  return {
+    name: r.name,
+    level: r.level,
+    bpm: r.bpm,
+    ur: r.ur,
+    plays: r.plays,
+    totalTaps: r.total_taps,
+    firstSeen: r.first_seen,
+    lastSeen: r.last_seen,
+    bestAt: r.best_at,
+  };
+}
+
+const SELECT_ALL = 'SELECT * FROM players ORDER BY level DESC, bpm DESC';
+
+async function getPlayer(db, key) {
+  const r = await db.prepare('SELECT * FROM players WHERE key = ?1').bind(key).first();
+  return r || null;
+}
+
+async function upsertPlayer(db, p) {
+  await db.prepare(
+    'INSERT INTO players (name, key, level, bpm, ur, plays, total_taps, first_seen, last_seen, best_at, last_hash) ' +
+    'VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11) ' +
+    'ON CONFLICT(key) DO UPDATE SET name=?1, level=?3, bpm=?4, ur=?5, plays=?6, total_taps=?7, last_seen=?9, best_at=?10, last_hash=?11'
+  ).bind(p.name, p.key, p.level, p.bpm, p.ur, p.plays, p.totalTaps, p.firstSeen, p.lastSeen, p.bestAt, p.lastHash || null).run();
 }
 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    const db = env.DB;
 
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: CORS });
     }
 
     if (url.pathname === '/api/health') {
-      return json({ ok: true, worker: 'osi-leaderboard', time: new Date().toISOString() });
+      return json({ ok: true, worker: 'osi-leaderboard', storage: 'd1', time: nowISO() });
     }
 
     if (url.pathname === '/api/leaderboard' && request.method === 'GET') {
-      if (MEM.lb.data && Date.now() - MEM.lb.at < CACHE_TTL) return json(MEM.lb.data);
       const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') || '50', 10) || 50));
-      const entries = await loadAll(env);
-      entries.sort((a, b) => b.level - a.level || (b.bpm || 0) - (a.bpm || 0));
-      const ranked = entries.slice(0, limit).map((e, i) => ({
-        rank: i + 1,
-        name: e.name,
-        level: e.level,
-        bpm: e.bpm,
-        ur: e.ur,
-        plays: e.plays || 1,
-        totalTaps: e.totalTaps || 0,
-        bestAt: e.bestAt || e.firstSeen || e.lastSeen,
-        firstSeen: e.firstSeen,
-        lastSeen: e.lastSeen,
-      }));
-      const payload = { leaderboard: ranked, generatedAt: new Date().toISOString() };
-      MEM.lb = { at: Date.now(), data: payload };
-      return json(payload);
+      const rs = await db.prepare(SELECT_ALL + ' LIMIT ?1').bind(limit).all();
+      const ranked = (rs.results || []).map((r, i) => {
+        const e = rowToEntry(r);
+        e.rank = i + 1;
+        return e;
+      });
+      return json({ leaderboard: ranked, generatedAt: nowISO() });
     }
 
     if (url.pathname === '/api/stats' && request.method === 'GET') {
-      if (MEM.stats.data && Date.now() - MEM.stats.at < CACHE_TTL) return json(MEM.stats.data);
-      const entries = await loadAll(env);
-      let totalTaps = 0, totalPlays = 0, best = 0;
-      const levelHistogram = {};
-      let bpmSum = 0, bpmCount = 0;
-      for (const e of entries) {
-        totalTaps += e.totalTaps || 0;
-        totalPlays += e.plays || 1;
-        if (e.level > best) best = e.level;
-        const b = Math.floor(e.level / 25) * 25;
-        levelHistogram[b] = (levelHistogram[b] || 0) + 1;
-        if (e.bpm > 0) { bpmSum += e.bpm; bpmCount++; }
-      }
-      const avgBpm = bpmCount ? Math.round((bpmSum / bpmCount) * 10) / 10 : 0;
-      const buckets = Object.entries(levelHistogram)
-        .map(([b, count]) => ({ bucket: Number(b), label: b + '-' + (Number(b) + 24), count }))
-        .sort((x, y) => x.bucket - y.bucket);
-      const payload = {
-        players: entries.length,
-        bestLevel: best,
-        totalTaps,
-        totalPlays,
-        avgTopBpm: avgBpm,
-        levelBuckets: buckets,
-        generatedAt: new Date().toISOString(),
-      };
-      MEM.stats = { at: Date.now(), data: payload };
-      return json(payload);
+      const agg = await db.prepare(
+        'SELECT COUNT(*) AS players, MAX(level) AS bestLevel, SUM(total_taps) AS totalTaps, SUM(plays) AS totalPlays FROM players'
+      ).first();
+      const buckets = await db.prepare(
+        'SELECT (level / 25) * 25 AS bucket, COUNT(*) AS count FROM players GROUP BY bucket ORDER BY bucket'
+      ).all();
+      const avg = await db.prepare('SELECT AVG(bpm) AS avgTopBpm FROM players WHERE bpm > 0').first();
+      return json({
+        players: agg.players || 0,
+        bestLevel: agg.bestLevel || 0,
+        totalTaps: agg.totalTaps || 0,
+        totalPlays: agg.totalPlays || 0,
+        avgTopBpm: avg && avg.avgTopBpm ? Math.round(avg.avgTopBpm * 10) / 10 : 0,
+        levelBuckets: (buckets.results || []).map(b => ({ bucket: b.bucket * 25, label: (b.bucket * 25) + '-' + (b.bucket * 25 + 24), count: b.count })),
+        generatedAt: nowISO(),
+      });
     }
 
     if (url.pathname === '/api/submit' && request.method === 'POST') {
       let body;
-      try {
-        body = await request.json();
-      } catch (e) {
-        return bad('invalid json');
-      }
+      try { body = await request.json(); } catch (e) { return bad('invalid json'); }
 
       const name = typeof body.name === 'string' ? body.name.trim().slice(0, 16) : '';
       if (!name) return bad('missing name');
-
       const level = Math.floor(Number(body.level));
       if (!Number.isFinite(level) || level < 1 || level > 5000) return bad('bad level');
-
       const bpm = Number(body.bpm);
       const ur = Number(body.ur);
       const notes = Math.floor(Number(body.notes));
@@ -229,43 +209,41 @@ export default {
 
       const spec = specForLevel(level);
       if (notes !== spec.notes) return bad('note count mismatch', 422);
-      if (!(bpm >= spec.bpm && ur < spec.ur)) {
-        return bad('score does not meet the level requirements', 422);
-      }
-      if (!plausible({ bpm, ur, notes, elapsedMs })) {
-        return bad('physically implausible', 422);
-      }
+      if (!(bpm >= spec.bpm && ur < spec.ur)) return bad('score does not meet the level requirements', 422);
+      if (!plausible({ bpm, ur, notes, elapsedMs })) return bad('physically implausible', 422);
       const proofResult = checkProof({ bpm, ur, notes, elapsedMs, proof: body.proof }, spec);
       if (!proofResult) return bad('proof invalid or missing', 422);
 
-      const key = 'lb:' + name.toLowerCase().replace(/[^a-z0-9_ -]/g, '');
-      if (key === 'lb:') return bad('bad name');
+      const key = keyFor(name);
+      if (!key) return bad('bad name');
 
-      const existing = (await env.LEADERBOARD.get(key, 'json')) || {};
+      const existing = await getPlayer(db, key);
       const hash = await bodyHash({ name, notes, bpm, ur, elapsedMs });
-      if (existing.lastHash && existing.lastHash === hash) return bad('replay', 409);
-      const now = new Date().toISOString();
-      const better = level >= (existing.level || 0);
-      const entry = {
+      if (existing && existing.last_hash && existing.last_hash === hash) return bad('replay', 409);
+
+      const now = nowISO();
+      const prev = existing ? rowToEntry(existing) : { level: 0, plays: 0, totalTaps: 0, firstSeen: now };
+      const better = level >= prev.level;
+      await upsertPlayer(db, {
         name,
-        level: better ? level : existing.level,
-        bpm: better ? bpm : existing.bpm,
-        ur: better ? ur : existing.ur,
-        plays: (existing.plays || 0) + 1,
-        totalTaps: (existing.totalTaps || 0) + notes,
-        bestAt: better ? now : (existing.bestAt || existing.lastSeen || now),
-        lastHash: hash,
-        firstSeen: existing.firstSeen || now,
+        key,
+        level: better ? level : prev.level,
+        bpm: better ? bpm : prev.bpm,
+        ur: better ? ur : prev.ur,
+        plays: (prev.plays || 0) + 1,
+        totalTaps: (prev.totalTaps || 0) + notes,
+        firstSeen: existing ? existing.first_seen : now,
         lastSeen: now,
-      };
-      await env.LEADERBOARD.put(key, JSON.stringify(entry));
-      MEM.lb.at = 0; MEM.stats.at = 0; // next read reflects this submit
-      return json({ ok: true, level: entry.level });
+        bestAt: better ? now : (existing ? existing.best_at : now),
+        lastHash: hash,
+      });
+      return json({ ok: true, level: better ? level : prev.level });
     }
 
     if (url.pathname === '/api/taps' && request.method === 'POST') {
       let body;
       try { body = await request.json(); } catch (e) { return bad('invalid json'); }
+
       const name = typeof body.name === 'string' ? body.name.trim().slice(0, 16) : '';
       if (!name) return bad('missing name');
       const notes = Math.floor(Number(body.notes));
@@ -277,20 +255,32 @@ export default {
       if (!plausible({ bpm, ur, notes, elapsedMs })) return bad('physically implausible', 422);
       const proofResult = checkProof({ bpm, ur, notes, elapsedMs, proof: body.proof }, null);
       if (!proofResult) return bad('proof invalid or missing', 422);
-      const key = 'lb:' + name.toLowerCase().replace(/[^a-z0-9_ -]/g, '');
-      if (key === 'lb:') return bad('bad name');
-      const existing = (await env.LEADERBOARD.get(key, 'json')) || {
-        name, level: 0, bpm, ur, plays: 0, totalTaps: 0,
-        firstSeen: new Date().toISOString(), bestAt: new Date().toISOString(),
-      };
+
+      const key = keyFor(name);
+      if (!key) return bad('bad name');
+
+      const existing = await getPlayer(db, key);
       const hash = await bodyHash({ name, notes, bpm, ur, elapsedMs });
-      if (existing.lastHash && existing.lastHash === hash) return bad('replay', 409);
-      const now = new Date().toISOString();
-      const entry = { ...existing, plays: (existing.plays || 0) + 1, totalTaps: (existing.totalTaps || 0) + notes, lastSeen: now, lastHash: hash };
-      await env.LEADERBOARD.put(key, JSON.stringify(entry));
-      MEM.lb.at = 0; MEM.stats.at = 0;
-      return json({ ok: true, totalTaps: entry.totalTaps });
+      if (existing && existing.last_hash && existing.last_hash === hash) return bad('replay', 409);
+
+      const now = nowISO();
+      const prev = existing ? rowToEntry(existing) : { level: 0, plays: 0, totalTaps: 0, firstSeen: now };
+      await upsertPlayer(db, {
+        name,
+        key,
+        level: prev.level || 0,
+        bpm: prev.level ? prev.bpm : bpm,
+        ur: prev.level ? prev.ur : ur,
+        plays: (prev.plays || 0) + 1,
+        totalTaps: (prev.totalTaps || 0) + notes,
+        firstSeen: existing ? existing.first_seen : now,
+        lastSeen: now,
+        bestAt: existing ? existing.best_at : now,
+        lastHash: hash,
+      });
+      return json({ ok: true, totalTaps: (prev.totalTaps || 0) + notes });
     }
+
     return bad('not found', 404);
   },
 };

@@ -1,0 +1,14 @@
+﻿CREATE TABLE IF NOT EXISTS players (
+  name TEXT NOT NULL,
+  key TEXT PRIMARY KEY,
+  level INTEGER NOT NULL DEFAULT 0,
+  bpm REAL NOT NULL DEFAULT 0,
+  ur REAL NOT NULL DEFAULT 0,
+  plays INTEGER NOT NULL DEFAULT 0,
+  total_taps INTEGER NOT NULL DEFAULT 0,
+  first_seen TEXT NOT NULL,
+  last_seen TEXT NOT NULL,
+  best_at TEXT NOT NULL,
+  last_hash TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_players_level ON players (level DESC);

@@ -2,6 +2,12 @@
 pages_build_output_dir = "site"
 compatibility_date = "2026-08-01"
 
+[[d1_databases]]
+binding = "DB"
+database_name = "osi-leaderboard"
+database_id = "9dda43b6-50d6-43f5-b755-445bb08012af"
+
+# KV binding kept temporarily so nothing breaks mid-migration (unused by the new code)
 [[kv_namespaces]]
 binding = "LEADERBOARD"
 id = "dfaad6ab391d42f3ba67a4c45f0af6c5"
