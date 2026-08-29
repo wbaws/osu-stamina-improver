@@ -1,5 +1,5 @@
-name = "osi-leaderboard"
-main = "src/worker.js"
+﻿name = "osu-stamina-improver"
+pages_build_output_dir = "site"
 compatibility_date = "2026-08-01"
 
 [[kv_namespaces]]
