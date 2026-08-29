@@ -27,6 +27,7 @@ Clear any level, pick a display name, and your score lands on the public leaderb
 
 - **ranked by highest level cleared**, plus bpm, UR, total taps and plays
 - **global stats**: total players, best level worldwide, total taps logged, average top bpm, level distribution
+- **submission time**: every row shows when the score was set, as relative time (3s ago → 4y ago)
 - **anti-cheat**: submissions include the raw click-timing; the server recomputes bpm/UR with the exact same level formula and rejects anything inconsistent (forged or physically impossible scores fail)
 
 The leaderboard API runs on **Cloudflare Pages Functions** (free tier) with KV storage, served from the same domain as the game. The game itself is fully static.

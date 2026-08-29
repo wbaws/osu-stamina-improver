@@ -146,6 +146,7 @@
   .lb-table .lb-lvl{ font-weight:700; }
   .lb-table .lb-me{ background:rgba(255,255,0,.14); }
   .lb-muted{ opacity:.65; font-size:13px; }
+  .lb-table .lb-when{ opacity:.75; white-space:nowrap; font-size:13px; }
   .lb-actions{ margin-top:8px; display:flex; align-items:center; justify-content:center; gap:10px; }
   .name-modal{ position:fixed; inset:0; z-index:120; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.45); }
   .name-card{ background:#fff; color:#141414; border:1px solid #ccc; border-radius:10px; padding:18px 20px; text-align:center; box-shadow:0 10px 40px rgba(0,0,0,.35); max-width:320px; width:90%; }
@@ -218,8 +219,8 @@
   <div class="online-stats" id="onlineStats">loading global stats&hellip;</div>
   <div class="lb-wrap">
     <table class="lb-table" id="lbTable">
-      <thead><tr><th>#</th><th>player</th><th>level</th><th>bpm</th><th>ur</th><th>taps</th></tr></thead>
-      <tbody id="lbBody"><tr><td colspan="6" class="lb-muted">loading&hellip;</td></tr></tbody>
+      <thead><tr><th>#</th><th>player</th><th>level</th><th>bpm</th><th>ur</th><th>taps</th><th>submitted</th></tr></thead>
+      <tbody id="lbBody"><tr><td colspan="7" class="lb-muted">loading&hellip;</td></tr></tbody>
     </table>
   </div>
   <div class="lb-actions">
@@ -1086,6 +1087,23 @@ if (typeof module !== 'undefined' && module.exports) {
     });
   };
 
+  /* ---------- relative time (submission age) ---------- */
+  function ago(ts) {
+    if (!ts) return '-';
+    var t = new Date(ts).getTime();
+    if (isNaN(t)) return '-';
+    var s = Math.floor((Date.now() - t) / 1000);
+    if (s < 1) s = 1;
+    if (s < 60) return s + 's ago';
+    var m = Math.floor(s / 60);
+    if (m < 60) return m + 'min ago';
+    var h = Math.floor(m / 60);
+    if (h < 46) return h + 'h ago';
+    var d = Math.floor(h / 24);
+    if (d < 30) return d + 'd ago';
+    if (d < 365) return Math.floor(d / 30) + 'mo ago';
+    return Math.floor(d / 365) + 'y ago';
+  }
   /* ---------- render ---------- */
   function renderStats(s) {
     var el = $('onlineStats');
@@ -1114,7 +1132,7 @@ if (typeof module !== 'undefined' && module.exports) {
     var body = $('lbBody');
     if (!body) return;
     if (!rows || !rows.length) {
-      body.innerHTML = '<tr><td colspan="6" class="lb-muted">no scores yet &mdash; clear a level to appear here</td></tr>';
+      body.innerHTML = '<tr><td colspan="7" class="lb-muted">no scores yet &mdash; clear a level to appear here</td></tr>';
       return;
     }
     var html = '';
@@ -1127,6 +1145,7 @@ if (typeof module !== 'undefined' && module.exports) {
         '<td>' + fmt(r.bpm, 2) + '</td>' +
         '<td>' + fmt(r.ur, 1) + '</td>' +
         '<td>' + fmt(r.totalTaps) + '</td>' +
+        '<td class="lb-when" title="' + esc(new Date(r.bestAt || r.lastSeen || Date.now()).toLocaleString()) + '">' + ago(r.bestAt || r.lastSeen) + '</td>' +
         '</tr>';
     });
     body.innerHTML = html;
@@ -1135,7 +1154,7 @@ if (typeof module !== 'undefined' && module.exports) {
   function loadAll() {
     if (!API_BASE || API_BASE.indexOf('https://') !== 0) {
       var b = $('lbBody');
-      if (b) b.innerHTML = '<tr><td colspan="6" class="lb-muted">leaderboard not configured yet</td></tr>';
+      if (b) b.innerHTML = '<tr><td colspan="7" class="lb-muted">leaderboard not configured yet</td></tr>';
       return;
     }
     fetch(API_BASE + '/api/stats').then(function (r) { return r.json(); }).then(renderStats).catch(function () {});
@@ -1143,7 +1162,7 @@ if (typeof module !== 'undefined' && module.exports) {
       renderLb(d.leaderboard);
     }).catch(function () {
       var b = $('lbBody');
-      if (b) b.innerHTML = '<tr><td colspan="6" class="lb-muted">leaderboard unreachable (offline?)</td></tr>';
+      if (b) b.innerHTML = '<tr><td colspan="7" class="lb-muted">leaderboard unreachable (offline?)</td></tr>';
     });
   }
 

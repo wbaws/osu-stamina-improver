@@ -158,6 +158,7 @@ async function handleFetch(request, env, ctx) {
         ur: e.ur,
         plays: e.plays || 1,
         totalTaps: e.totalTaps || 0,
+        bestAt: e.bestAt || e.firstSeen || e.lastSeen,
         firstSeen: e.firstSeen,
         lastSeen: e.lastSeen,
       }));
@@ -243,6 +244,7 @@ async function handleFetch(request, env, ctx) {
         ur: better ? ur : existing.ur,
         plays: (existing.plays || 0) + 1,
         totalTaps: (existing.totalTaps || 0) + notes,
+        bestAt: better ? now : (existing.bestAt || existing.lastSeen || now),
         firstSeen: existing.firstSeen || now,
         lastSeen: now,
       };
