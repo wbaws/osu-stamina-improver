@@ -100,8 +100,7 @@ function checkProof(sub, spec) {
     Math.abs(ur - sub.ur) < 1e-6 &&
     Math.abs(elapsed - sub.elapsedMs) < 1e-6 &&
     n === sub.notes &&
-    bpm >= spec.bpm &&
-    ur < spec.ur;
+    (!spec || (bpm >= spec.bpm && ur < spec.ur));
   return ok ? { bpm, ur, elapsed, n } : null;
 }
 
@@ -118,6 +117,13 @@ function plausible(sub) {
   }
   if (ur < 0 || ur > 1000) return false;
   return true;
+}
+/* immediate-replay guard: reject the exact same run payload twice in a row */
+async function bodyHash(sub) {
+  const enc = new TextEncoder();
+  const data = enc.encode(JSON.stringify({ name: sub.name, notes: sub.notes, bpm: sub.bpm, ur: sub.ur, elapsedMs: sub.elapsedMs }));
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 async function loadAll(env) {
@@ -235,6 +241,8 @@ async function handleFetch(request, env, ctx) {
       if (key === 'lb:') return bad('bad name');
 
       const existing = (await env.LEADERBOARD.get(key, 'json')) || {};
+      const hash = await bodyHash({ name, notes, bpm, ur, elapsedMs });
+      if (existing.lastHash && existing.lastHash === hash) return bad('replay', 409);
       const now = new Date().toISOString();
       const better = level >= (existing.level || 0);
       const entry = {
@@ -245,6 +253,7 @@ async function handleFetch(request, env, ctx) {
         plays: (existing.plays || 0) + 1,
         totalTaps: (existing.totalTaps || 0) + notes,
         bestAt: better ? now : (existing.bestAt || existing.lastSeen || now),
+        lastHash: hash,
         firstSeen: existing.firstSeen || now,
         lastSeen: now,
       };
@@ -253,6 +262,32 @@ async function handleFetch(request, env, ctx) {
       return json({ ok: true, level: entry.level });
     }
 
+    if (url.pathname === '/api/taps' && request.method === 'POST') {
+      let body;
+      try { body = await request.json(); } catch (e) { return bad('invalid json'); }
+      const name = typeof body.name === 'string' ? body.name.trim().slice(0, 16) : '';
+      if (!name) return bad('missing name');
+      const notes = Math.floor(Number(body.notes));
+      const bpm = Number(body.bpm);
+      const ur = Number(body.ur);
+      const elapsedMs = Number(body.elapsedMs);
+      if (!Number.isFinite(bpm) || !Number.isFinite(ur) || !Number.isFinite(notes) || !Number.isFinite(elapsedMs)) return bad('bad numbers');
+      if (notes < 2 || notes > 10000) return bad('bad notes');
+      if (!plausible({ bpm, ur, notes, elapsedMs })) return bad('physically implausible', 422);
+      const proofResult = checkProof({ bpm, ur, notes, elapsedMs, proof: body.proof }, null);
+      if (!proofResult) return bad('proof invalid or missing', 422);
+      const key = 'lb:' + name.toLowerCase().replace(/[^a-z0-9_ -]/g, '');
+      if (key === 'lb:') return bad('bad name');
+      const existing = (await env.LEADERBOARD.get(key, 'json'));
+      if (!existing) return bad('unknown player - clear a level first', 404);
+      const hash = await bodyHash({ name, notes, bpm, ur, elapsedMs });
+      if (existing.lastHash && existing.lastHash === hash) return bad('replay', 409);
+      const now = new Date().toISOString();
+      const entry = { ...existing, plays: (existing.plays || 0) + 1, totalTaps: (existing.totalTaps || 0) + notes, lastSeen: now, lastHash: hash };
+      await env.LEADERBOARD.put(key, JSON.stringify(entry));
+      MEM.lb.at = 0; MEM.stats.at = 0;
+      return json({ ok: true, totalTaps: entry.totalTaps });
+    }
     return bad('not found', 404);
 }
 

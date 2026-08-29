@@ -219,7 +219,7 @@
   <div class="online-stats" id="onlineStats">loading global stats&hellip;</div>
   <div class="lb-wrap">
     <table class="lb-table" id="lbTable">
-      <thead><tr><th>#</th><th>player</th><th>level</th><th>bpm</th><th>ur</th><th>taps</th><th>submitted</th></tr></thead>
+      <thead><tr><th>#</th><th>player</th><th>level</th><th>bpm</th><th>ur</th><th>total taps</th><th>submitted</th></tr></thead>
       <tbody id="lbBody"><tr><td colspan="7" class="lb-muted">loading&hellip;</td></tr></tbody>
     </table>
   </div>
@@ -641,6 +641,7 @@ function beginLevel(L, benchIdx) {
 }
 
 function stopTest() {
+  if (S.state === 'running' && S.mode === 'level' && S.times.length >= 2 && window.OSITaps) { try { window.OSITaps(S.count, analyze(S.times), S.times); } catch (e) {} }
   metroStop();
   clearChart();
   goIdle('stopped — no judgment, no penalty.');
@@ -715,6 +716,7 @@ function finishRun() {
     setStatus('Level ' + S.levelNum + ' failed', 'bad');
     $('advice').style.display = 'block';
     $('advice').textContent = ADVICE[r.bpm < sp.bpm ? 'bpm' : 'ur'];
+    if (window.OSITaps) window.OSITaps(S.count, r, S.times);
     $('btnPrimary').textContent = 'retry';
     setBtn('btnPrimary', true);
     setBtn('btnMenu', true);
@@ -1104,6 +1106,30 @@ if (typeof module !== 'undefined' && module.exports) {
     if (d < 365) return Math.floor(d / 30) + 'mo ago';
     return Math.floor(d / 365) + 'y ago';
   }
+  /* ---------- count taps from failed/stopped runs ---------- */
+  window.OSITaps = function (count, result, times) {
+    if (!API_BASE || API_BASE.indexOf('https://') !== 0) return;
+    if (!myName || !times || times.length < 2 || count < 2 || !result) return;
+    fetch(API_BASE + '/api/taps', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: myName,
+        notes: count,
+        bpm: result.bpm,
+        ur: result.ur,
+        elapsedMs: result.elapsed,
+        proof: { clicks: times }
+      })
+    }).then(function (res) {
+      if (!res.ok) return null;
+      return res.json();
+    }).then(function (data) {
+      if (!data) return;
+      var st = $('lbStatus');
+      if (st) st.textContent = 'total taps: ' + data.totalTaps;
+    }).catch(function () {});
+  };
   /* ---------- render ---------- */
   function renderStats(s) {
     var el = $('onlineStats');
