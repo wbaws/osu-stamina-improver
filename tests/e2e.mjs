@@ -32,7 +32,7 @@ const mean = diffs.reduce((a, b) => a + b, 0) / diffs.length;
 let ss = 0;
 for (const d of diffs) ss += (d - mean) * (d - mean);
 const ur = 10 * Math.sqrt(ss / diffs.length);
-const RUN = 'E2E-' + Date.now().toString(36);
+const RUN = 'e2e-' + Date.now().toString(36);
 
 /* helper: build a synthetic run */
 function makeRun(n, targetBpm) {
