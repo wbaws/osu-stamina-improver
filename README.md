@@ -1,4 +1,4 @@
-﻿# osu! Stamina Improver
+# osu! Stamina Improver
 
 A browser-based stamina / stream-speed trainer for osu! players, with a **global leaderboard**.
 
@@ -7,7 +7,7 @@ Based on the [osu! Stream Speed Benchmark](https://github.com/ckrisirkc/osuStrea
 ## Play
 
 - **Primary:** https://osu-stamina-improver.pages.dev/ (game + leaderboard API on one domain)
-- **Mirror:** https://ishak727.github.io/osu-stamina-improver/ (GitHub Pages)
+- **Mirror:** https://wbaws.github.io/osu-stamina-improver/ (GitHub Pages)
 
 No install, no account, works in any modern browser. You can also download this repository and open `index.html` directly.
 
