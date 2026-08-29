@@ -29,6 +29,10 @@ const json = (obj, status = 200) =>
 
 const bad = (msg, status = 400) => json({ error: msg }, status);
 
+/* per-isolate 30s read cache: keeps leaderboard/stats well inside free-tier limits */
+const MEM = { lb: { at: 0, data: null }, stats: { at: 0, data: null } };
+const CACHE_TTL = 30000;
+
 /* ---------------- level formula (mirror of index.html) ---------------- */
 function staminaSpec(cyc, k) {
   const bpm = 170 + 2 * (5 * cyc + k) + Math.floor(cyc / 2);
@@ -143,6 +147,7 @@ export default {
     }
 
     if (url.pathname === '/api/leaderboard' && request.method === 'GET') {
+      if (MEM.lb.data && Date.now() - MEM.lb.at < CACHE_TTL) return json(MEM.lb.data);
       const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') || '50', 10) || 50));
       const entries = await loadAll(env);
       entries.sort((a, b) => b.level - a.level || (b.bpm || 0) - (a.bpm || 0));
@@ -157,10 +162,13 @@ export default {
         firstSeen: e.firstSeen,
         lastSeen: e.lastSeen,
       }));
-      return json({ leaderboard: ranked, generatedAt: new Date().toISOString() });
+      const payload = { leaderboard: ranked, generatedAt: new Date().toISOString() };
+      MEM.lb = { at: Date.now(), data: payload };
+      return json(payload);
     }
 
     if (url.pathname === '/api/stats' && request.method === 'GET') {
+      if (MEM.stats.data && Date.now() - MEM.stats.at < CACHE_TTL) return json(MEM.stats.data);
       const entries = await loadAll(env);
       let totalTaps = 0, totalPlays = 0, best = 0;
       const levelHistogram = {};
@@ -177,7 +185,7 @@ export default {
       const buckets = Object.entries(levelHistogram)
         .map(([b, count]) => ({ bucket: Number(b), label: b + '-' + (Number(b) + 24), count }))
         .sort((x, y) => x.bucket - y.bucket);
-      return json({
+      const payload = {
         players: entries.length,
         bestLevel: best,
         totalTaps,
@@ -185,7 +193,9 @@ export default {
         avgTopBpm: avgBpm,
         levelBuckets: buckets,
         generatedAt: new Date().toISOString(),
-      });
+      };
+      MEM.stats = { at: Date.now(), data: payload };
+      return json(payload);
     }
 
     if (url.pathname === '/api/submit' && request.method === 'POST') {
@@ -238,6 +248,7 @@ export default {
         lastSeen: now,
       };
       await env.LEADERBOARD.put(key, JSON.stringify(entry));
+      MEM.lb.at = 0; MEM.stats.at = 0; // next read reflects this submit
       return json({ ok: true, level: entry.level });
     }
 

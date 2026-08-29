@@ -147,6 +147,11 @@
   .lb-table .lb-me{ background:rgba(255,255,0,.14); }
   .lb-muted{ opacity:.65; font-size:13px; }
   .lb-actions{ margin-top:8px; display:flex; align-items:center; justify-content:center; gap:10px; }
+  .name-modal{ position:fixed; inset:0; z-index:120; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.45); }
+  .name-card{ background:#fff; color:#141414; border:1px solid #ccc; border-radius:10px; padding:18px 20px; text-align:center; box-shadow:0 10px 40px rgba(0,0,0,.35); max-width:320px; width:90%; }
+  .name-title{ font-weight:800; font-size:16px; margin-bottom:10px; }
+  .name-input{ width:100%; margin:0 auto 10px; text-transform:none; }
+  .name-actions{ display:flex; justify-content:center; gap:8px; margin-bottom:8px; }
   .name-chip{ font-size:13px; border:1px dashed var(--well-border); border-radius:6px; padding:6px 10px; background:var(--well); cursor:pointer; }
   @media (max-width:640px){
     .page-header h1{ font-size:23px; }
@@ -218,10 +223,23 @@
     </table>
   </div>
   <div class="lb-actions">
+    <button class="btn" id="btnName">set your name</button>
     <button class="btn" id="btnRefreshLb">refresh</button>
     <span class="lb-muted" id="lbStatus"></span>
   </div>
 </section>
+<div class="name-modal" id="nameModal" style="display:none">
+  <div class="name-card">
+    <div class="name-title">pick your leaderboard name</div>
+    <input id="nameInput" class="text-input name-input" maxlength="16" placeholder="e.g. ktseN" autocomplete="off">
+    <div class="name-actions">
+      <button id="nameSave" class="btn btn-strong">save</button>
+      <button id="nameCancel" class="btn">not now</button>
+    </div>
+    <div class="lb-muted">shown publicly on the leaderboard &middot; max 16 chars</div>
+  </div>
+</div>
+
 <footer>
   osu! Stamina Improver · based on <a href="https://github.com/ckrisirkc/osuStreamSpeed.js" target="_blank" rel="noopener">osu! Stream Speed Benchmark</a> by arctic, rewritten by Yepstare
 </footer>
@@ -829,6 +847,7 @@ function showTestResult() {
 const keysDown = {};
 window.addEventListener('keydown', e => {
   if (e.repeat) return;
+  if (window.OSINameModalOpen && window.OSINameModalOpen()) return;
   if (e.target && e.target.tagName === 'INPUT') return;
   const k = e.key ? e.key.toLowerCase() : '';
 
@@ -953,8 +972,8 @@ if (typeof module !== 'undefined' && module.exports) {
 
 <script>
 /* ================= online leaderboard module =================
-   Talks to the free Cloudflare Worker that validates submissions
-   by recomputing the run from raw click times (anti-cheat).      */
+   Talks to the Cloudflare Pages Function that validates submissions
+   by recomputing the run from raw click times (anti-cheat).        */
 (function () {
   'use strict';
 
@@ -971,9 +990,48 @@ if (typeof module !== 'undefined' && module.exports) {
   }
 
   function renderNameChip() {
-    var el = $('lbStatus');
-    if (el && myName) el.textContent = 'playing as ' + myName;
+    var b = $('btnName');
+    if (b) b.textContent = myName ? 'playing as ' + myName + ' - change' : 'set your name';
   }
+
+  /* ---------- in-page name modal (no native prompt dialogs) ---------- */
+  var pendingResolve = null;
+  function nameModalOpen() { return $('nameModal').style.display !== 'none'; }
+  window.OSINameModalOpen = nameModalOpen;
+
+  function askName(prefill) {
+    return new Promise(function (resolve) {
+      pendingResolve = resolve;
+      $('nameInput').value = prefill || '';
+      $('nameModal').style.display = 'flex';
+      setTimeout(function () { try { $('nameInput').focus(); } catch (e) {} }, 60);
+    });
+  }
+  function closeName(value) {
+    $('nameModal').style.display = 'none';
+    if (pendingResolve) { var r = pendingResolve; pendingResolve = null; r(value); }
+  }
+  $('nameSave').addEventListener('click', function () {
+    var v = $('nameInput').value.trim().slice(0, 16);
+    closeName(v || null);
+  });
+  $('nameCancel').addEventListener('click', function () { closeName(null); });
+  $('nameInput').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); $('nameSave').click(); }
+    if (e.key === 'Escape') { e.preventDefault(); closeName(null); }
+  });
+  $('nameModal').addEventListener('mousedown', function (e) {
+    if (e.target === $('nameModal')) closeName(null);
+  });
+
+  $('btnName').addEventListener('click', function () {
+    askName(myName || '').then(function (v) {
+      if (!v) return;
+      setName(v);
+      var st = $('lbStatus');
+      if (st) st.textContent = 'playing as ' + v;
+    });
+  });
 
   function esc(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
@@ -989,38 +1047,42 @@ if (typeof module !== 'undefined' && module.exports) {
   /* ---------- submit a cleared level ---------- */
   window.OSISubmit = function (level, result, spec, times) {
     if (!API_BASE || API_BASE.indexOf('https://') !== 0) return;
-    var name = myName;
-    if (!name) {
-      name = prompt('Level ' + level + ' cleared! Pick a display name for the global leaderboard (max 16 chars):', '');
-      if (!name) return; // player declined; do not nag again this session
-      name = name.trim().slice(0, 16);
-      if (!name) return;
-      setName(name);
-    }
-    var payload = {
-      name: name,
-      level: level,
-      bpm: result.bpm,
-      ur: result.ur,
-      notes: spec.notes,
-      elapsedMs: result.elapsed,
-      proof: { clicks: times }
+    var doSubmit = function (name) {
+      var payload = {
+        name: name,
+        level: level,
+        bpm: result.bpm,
+        ur: result.ur,
+        notes: spec.notes,
+        elapsedMs: result.elapsed,
+        proof: { clicks: times }
+      };
+      fetch(API_BASE + '/api/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).then(function (res) {
+        if (!res.ok) throw new Error('submit failed: ' + res.status);
+        return res.json();
+      }).then(function (data) {
+        var st = $('lbStatus');
+        if (st) st.textContent = 'score submitted (level ' + data.level + ')';
+        loadAll();
+      }).catch(function (err) {
+        console.warn('[osi] submit failed', err);
+        var st = $('lbStatus');
+        if (st) st.textContent = 'could not reach leaderboard (offline?)';
+      });
     };
-    fetch(API_BASE + '/api/submit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    }).then(function (res) {
-      if (!res.ok) throw new Error('submit failed: ' + res.status);
-      return res.json();
-    }).then(function (data) {
-      var st = $('lbStatus');
-      if (st) st.textContent = 'score submitted (level ' + data.level + ')';
-      loadAll();
-    }).catch(function (err) {
-      console.warn('[osi] submit failed', err);
-      var st = $('lbStatus');
-      if (st) st.textContent = 'could not reach leaderboard (offline?)';
+    if (myName) { doSubmit(myName); return; }
+    askName('').then(function (v) {
+      if (!v) {
+        var st = $('lbStatus');
+        if (st) st.textContent = 'name needed to submit - set one below and clear a level again';
+        return;
+      }
+      setName(v);
+      doSubmit(v);
     });
   };
 
@@ -1079,7 +1141,6 @@ if (typeof module !== 'undefined' && module.exports) {
     fetch(API_BASE + '/api/stats').then(function (r) { return r.json(); }).then(renderStats).catch(function () {});
     fetch(API_BASE + '/api/leaderboard?limit=50').then(function (r) { return r.json(); }).then(function (d) {
       renderLb(d.leaderboard);
-      renderNameChip();
     }).catch(function () {
       var b = $('lbBody');
       if (b) b.innerHTML = '<tr><td colspan="6" class="lb-muted">leaderboard unreachable (offline?)</td></tr>';
@@ -1087,6 +1148,7 @@ if (typeof module !== 'undefined' && module.exports) {
   }
 
   $('btnRefreshLb').addEventListener('click', loadAll);
+  renderNameChip();
   loadAll();
 })();
 </script></body>
