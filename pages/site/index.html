@@ -70,6 +70,7 @@
   .btn:disabled:active{ box-shadow:none; }
   .btn-strong{ font-weight:800; font-size:16px; padding:9px 22px; }
 
+  .test-row{ margin:12px 0 0; text-align:center; }
   .status{ margin:8px 0 2px; font-size:15px; min-height:22px; opacity:.95; }
   .status.good{ color:var(--good); font-weight:700; }
   .status.bad{ color:var(--bad); font-weight:700; }
@@ -202,7 +203,6 @@
     <div class="btn-row">
       <button id="btnBegin" class="btn">Begin</button>
       <button id="btnStop" class="btn" style="display:none">Stop Test</button>
-      <button id="btnTest" class="btn">take me to a suitable level</button>
       <button id="btnReset" class="btn">Reset</button>
       <button id="btnPrimary" class="btn btn-strong" style="display:none">continue →</button>
       <button id="btnMenu" class="btn" style="display:none">Menu</button>
@@ -216,6 +216,8 @@
       Stream Speed: 0 bpm.<br>
       Unstable Rate: 0.
     </div>
+
+    <div class="test-row"><button id="btnTest" class="btn">take me to a suitable level</button></div>
 
     <div class="msg" id="msg"></div>
     <div class="advice" id="advice" style="display:none"></div>
@@ -620,7 +622,7 @@ function goIdle(msgText) {
   $('levelInfo').innerHTML =
     '<div class="level-num">Level <b>' + L + '</b>' + (sp.burst ? '<span class="burst">BURST</span>' : '') + '</div>' +
     '<div class="level-stats">target <b>' + (sp.burst ? round1(sp.bpm) : sp.bpm) + ' bpm</b> · UR &lt; <b>' + sp.ur + '</b> · <b>' + sp.notes + ' notes</b></div>';
-  setBtn('btnBegin', true); setBtn('btnTest', !store.tested); setBtn('btnReset', true);
+  setBtn('btnBegin', true); setBtn('btnTest', true); $('btnTest').disabled = false; setBtn('btnReset', true);
   setBtn('btnStop', false); setBtn('btnPrimary', false); setBtn('btnMenu', false);
   setInputsDisabled(false);
   setStatus(msgText || 'Time starts when you make your first click.');
@@ -656,7 +658,7 @@ function beginLevel(L, benchIdx) {
   setMsg('');
   $('advice').style.display = 'none';
   $('result').innerHTML = 'Tap Speed: 0 taps / 0 seconds.<br>Stream Speed: 0 bpm.<br>Unstable Rate: 0.';
-  setBtn('btnBegin', false); setBtn('btnTest', false); setBtn('btnReset', false);
+  setBtn('btnBegin', false); setBtn('btnTest', benchIdx === undefined); $('btnTest').disabled = true; setBtn('btnReset', false);
   setBtn('btnStop', true); setBtn('btnPrimary', false); setBtn('btnMenu', false);
   setInputsDisabled(true);
   clearChart();
@@ -715,6 +717,7 @@ function finishRun() {
 
   const pass = r.bpm >= sp.bpm && r.ur < sp.ur;
   setBtn('btnStop', false);
+  $('btnTest').disabled = false;
   if (pass) {
     store.level = S.levelNum + 1;
     store.best = S.levelNum;
@@ -863,6 +866,7 @@ function showTestResult() {
     'Stream Speed: ' + Math.round(avgBpm * 100) / 100 + ' bpm (avg).<br>' +
     'Unstable Rate: ' + Math.round(avgUr * 1000) / 1000 + ' (avg).';
   $('btnPrimary').textContent = 'start level ' + next + ' →';
+  setBtn('btnTest', false);
   setBtn('btnStop', false);
   setBtn('btnPrimary', true);
   setBtn('btnMenu', true);
