@@ -186,7 +186,7 @@ export default {
         totalTaps: agg.totalTaps || 0,
         totalPlays: agg.totalPlays || 0,
         avgTopBpm: avg && avg.avgTopBpm ? Math.round(avg.avgTopBpm * 10) / 10 : 0,
-        levelBuckets: (buckets.results || []).map(b => ({ bucket: b.bucket * 25, label: (b.bucket * 25) + '-' + (b.bucket * 25 + 24), count: b.count })),
+        levelBuckets: (buckets.results || []).map(b => ({ bucket: b.bucket, label: b.bucket + '-' + (b.bucket + 24), count: b.count })),
         generatedAt: nowISO(),
       });
     }
