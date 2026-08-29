@@ -191,8 +191,8 @@
 
     <div class="controls">
       <div class="ctrl-row">
-        <label>Key 1 <input id="key1" class="text-input" maxlength="1" value="Z"></label>
-        <label>Key 2 <input id="key2" class="text-input" maxlength="1" value="X"></label>
+        <label>Key 1 <input id="key1" class="text-input" maxlength="2" value="Z"></label>
+        <label>Key 2 <input id="key2" class="text-input" maxlength="2" value="X"></label>
       </div>
       <div class="ctrl-row">
         <label><input type="checkbox" id="metroChk"> Metronome</label>
@@ -983,14 +983,20 @@ function loadOptions() {
   mouseEl.checked = S.mouse;
 }
 key1El.addEventListener('input', () => {
-  const v = key1El.value.toLowerCase().replace(/[^a-z0-9 ]/g, '');
+  // accept any printable character: letters, digits, punctuation (, / & " ' - _ ç à è ) =), space, emoji
+  const cps = [...key1El.value];
+  let v = cps.length ? cps[cps.length - 1].toLowerCase() : "";
+  if (!v || /[\u0000-\u001f\u007f]/.test(v)) { key1El.value = S.keys.k1.toUpperCase(); return; }
   key1El.value = v.toUpperCase();
-  if (v) { S.keys.k1 = v; try { localStorage.setItem('osi_key1', v); } catch (e) {} }
+  S.keys.k1 = v; try { localStorage.setItem("osi_key1", v); } catch (e) {}
 });
 key2El.addEventListener('input', () => {
-  const v = key2El.value.toLowerCase().replace(/[^a-z0-9 ]/g, '');
+  // accept any printable character: letters, digits, punctuation (, / & " ' - _ ç à è ) =), space, emoji
+  const cps = [...key2El.value];
+  let v = cps.length ? cps[cps.length - 1].toLowerCase() : "";
+  if (!v || /[\u0000-\u001f\u007f]/.test(v)) { key2El.value = S.keys.k2.toUpperCase(); return; }
   key2El.value = v.toUpperCase();
-  if (v) { S.keys.k2 = v; try { localStorage.setItem('osi_key2', v); } catch (e) {} }
+  S.keys.k2 = v; try { localStorage.setItem("osi_key2", v); } catch (e) {}
 });
 metroEl.addEventListener('change', () => {
   metro.enabled = metroEl.checked;
