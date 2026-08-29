@@ -26,6 +26,7 @@ Your local progress is saved in your browser (localStorage). Nothing is tracked 
 Clear any level, pick a display name, and your score lands on the public leaderboard shown on the page:
 
 - **ranked by highest level cleared**, plus bpm, UR, total taps and plays (total taps accumulate from every run - failed and stopped runs count too)
+- **name on first fail**: the game asks for a display name the first time you fail a level; runs made before picking a name are saved locally and submitted automatically after
 - **global stats**: total players, best level worldwide, total taps logged, average top bpm, level distribution
 - **submission time**: every row shows when the score was set, as relative time (3s ago → 4y ago)
 - **anti-cheat**: submissions include the raw click-timing; the server recomputes bpm/UR with the exact same level formula and rejects anything inconsistent (forged or physically impossible scores fail)

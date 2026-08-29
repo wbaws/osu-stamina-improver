@@ -104,7 +104,8 @@ const taps4 = await fetch(BASE + '/api/taps', {
   method: 'POST', headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ name: 'nobody-' + RUN, notes: run2.clicks.length, bpm: run2.bpm, ur: run2.ur, elapsedMs: run2.elapsed, proof: { clicks: run2.clicks } })
 });
-check('unknown player taps rejected (404)', taps4.status === 404, 'status ' + taps4.status);
+const taps4j = await taps4.json().catch(() => ({}));
+check('unknown player taps create entry (200)', taps4.status === 200 && taps4j.ok === true && taps4j.totalTaps === run2.clicks.length, JSON.stringify(taps4j));
 
 const me = await waitFor('leaderboard entry', async () => {
   const lb = await (await fetch(BASE + '/api/leaderboard')).json();

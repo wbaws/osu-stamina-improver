@@ -279,8 +279,10 @@ export default {
       if (!proofResult) return bad('proof invalid or missing', 422);
       const key = 'lb:' + name.toLowerCase().replace(/[^a-z0-9_ -]/g, '');
       if (key === 'lb:') return bad('bad name');
-      const existing = (await env.LEADERBOARD.get(key, 'json'));
-      if (!existing) return bad('unknown player - clear a level first', 404);
+      const existing = (await env.LEADERBOARD.get(key, 'json')) || {
+        name, level: 0, bpm, ur, plays: 0, totalTaps: 0,
+        firstSeen: new Date().toISOString(), bestAt: new Date().toISOString(),
+      };
       const hash = await bodyHash({ name, notes, bpm, ur, elapsedMs });
       if (existing.lastHash && existing.lastHash === hash) return bad('replay', 409);
       const now = new Date().toISOString();
