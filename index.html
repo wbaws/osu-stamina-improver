@@ -154,6 +154,18 @@
   .name-input{ width:100%; margin:0 auto 10px; text-transform:none; }
   .name-actions{ display:flex; justify-content:center; gap:8px; margin-bottom:8px; }
   .name-chip{ font-size:13px; border:1px dashed var(--well-border); border-radius:6px; padding:6px 10px; background:var(--well); cursor:pointer; }
+  /* ---- touch tap zone (mobile) ---- */
+  #tapZone{
+    display:none; position:fixed; left:0; right:0; bottom:0; height:32vh;
+    z-index:55; background:var(--well); border-top:1px solid var(--border);
+    text-align:center; font-weight:800; user-select:none; -webkit-user-select:none;
+    touch-action:manipulation; cursor:pointer;
+  }
+  #tapZone .tz-big{ position:absolute; top:50%; left:0; right:0; transform:translateY(-50%); font-size:22px; letter-spacing:2px; }
+  #tapZone .tz-hint{ position:absolute; top:8px; left:0; right:0; font-size:11.5px; font-weight:600; opacity:.6; }
+  @media (pointer:coarse){
+    body.in-run.touchdev #tapZone{ display:block; }
+  }
   @media (max-width:640px){
     .page-header h1{ font-size:23px; }
     .result{ font-size:16px; }
@@ -229,6 +241,10 @@
     <span class="lb-muted" id="lbStatus"></span>
   </div>
 </section>
+<div id="tapZone">
+  <div class="tz-hint">touch mode &middot; capped at 448.72 bpm</div>
+  <div class="tz-big">TAP</div>
+</div>
 <div class="name-modal" id="nameModal" style="display:none">
   <div class="name-card">
     <div class="name-title">pick your leaderboard name</div>
@@ -592,6 +608,7 @@ function goIdle(msgText) {
   clearTimers();
   metroStop();
   S.state = 'idle'; S.mode = 'level';
+  document.body.classList.remove('in-run');
   const L = store.level, sp = levelSpec(L);
   applyTheme(L);
   S.levelNum = L; S.spec = sp;
@@ -617,6 +634,7 @@ function beginLevel(L, benchIdx) {
     ? { bpm: BENCHES[benchIdx].bpm, ur: Infinity, notes: BENCHES[benchIdx].notes, burst: false }
     : levelSpec(L);
   S.count = 0; S.times = []; S.state = 'ready';
+  document.body.classList.add('in-run');
   if (S.mode !== 'bench') applyTheme(L);   // benchmarks keep the current page color
   const sp = S.spec;
   if (S.mode === 'bench') {
@@ -675,6 +693,7 @@ function press() {
 function finishRun() {
   metroStop();
   S.state = 'done';
+  document.body.classList.remove('in-run');
   const r = analyze(S.times);
   const sp = S.spec;
 
@@ -739,6 +758,7 @@ function showBreak(userBpm) {
   clearTimers();
   metroStop();
   S.state = 'break';
+  document.body.classList.remove('in-run');
   $('breakMsg').textContent = BREAK_MSGS[Math.floor(Math.random() * BREAK_MSGS.length)];
   const secs = breakSeconds(S.spec.notes, userBpm);
   const end = performance.now() + secs * 1000;
@@ -812,6 +832,7 @@ function showTestResult() {
   metroStop();
   S.state = 'done';
   S.mode = 'test';
+  document.body.classList.remove('in-run');
   applyTheme(store.level);
   let b = 0, u = 0;
   S.benchResults.forEach(r => { b += r.bpm; u += r.ur; });
@@ -848,6 +869,11 @@ function showTestResult() {
 
 /* ---------------- input ---------------- */
 const keysDown = {};
+/* touch input: capped at 448.72 stream bpm (multi-finger abuse guard).
+   448.72 bpm stream = one click every 15000/448.72 = 33.43ms. */
+const TOUCH_CAP_BPM = 448.72;
+const TOUCH_MIN_MS = 15000 / TOUCH_CAP_BPM;
+let lastTouchPress = -1e9;
 window.addEventListener('keydown', e => {
   if (e.repeat) return;
   if (window.OSINameModalOpen && window.OSINameModalOpen()) return;
@@ -896,9 +922,35 @@ document.addEventListener('touchstart', e => {
   if (S.state !== 'ready' && S.state !== 'running') return;
   if (e.target && e.target.closest && e.target.closest('button, input, label')) return;
   e.preventDefault();
-  press();
+  const now = performance.now();
+  const touches = e.changedTouches;
+  for (let i = 0; i < touches.length; i++) {
+    if (now - lastTouchPress < TOUCH_MIN_MS) break;
+    lastTouchPress = now;
+    press();
+  }
 }, { passive: false });
 
+/* ---------------- touch tap zone (phones) ---------------- */
+(function detectTouchDev() {
+  try { if (('ontouchstart' in window) || (navigator.maxTouchPoints | 0) > 0) document.body.classList.add('touchdev'); } catch (e) {}
+})();
+const tapZone = $('tapZone');
+tapZone.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (S.state !== 'ready' && S.state !== 'running') return;
+  const now = performance.now();
+  const touches = e.changedTouches;
+  for (let i = 0; i < touches.length; i++) {
+    if (now - lastTouchPress < TOUCH_MIN_MS) break;
+    lastTouchPress = now;
+    press();
+  }
+}, { passive: false });
+tapZone.addEventListener('mousedown', e => {
+  if (S.state !== 'ready' && S.state !== 'running') return;
+  press();
+});
 /* ---------------- wire up ---------------- */
 $('btnBegin').addEventListener('click', () => beginLevel(store.level));
 $('btnStop').addEventListener('click', stopTest);

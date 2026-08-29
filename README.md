@@ -26,6 +26,7 @@ Your local progress is saved in your browser (localStorage). Nothing is tracked 
 Clear any level, pick a display name, and your score lands on the public leaderboard shown on the page:
 
 - **ranked by highest level cleared**, plus bpm, UR, total taps and plays (total taps accumulate from every run - failed and stopped runs count too)
+- **touch support**: on phones a tap zone appears during runs; touch input is capped at 448.72 stream bpm so multi-finger abuse cannot outrank keyboard players
 - **name on first fail**: the game asks for a display name the first time you fail a level; runs made before picking a name are saved locally and submitted automatically after
 - **global stats**: total players, best level worldwide, total taps logged, average top bpm, level distribution
 - **submission time**: every row shows when the score was set, as relative time (3s ago → 4y ago)
