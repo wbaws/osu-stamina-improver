@@ -1,0 +1,7 @@
+﻿name = "osi-leaderboard"
+main = "src/worker.js"
+compatibility_date = "2026-08-01"
+
+[[kv_namespaces]]
+binding = "LEADERBOARD"
+id = "REPLACE_WITH_KV_ID_AFTER_CREATION"

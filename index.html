@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>osu! Stamina Improver</title>
+<link href='https://fonts.googleapis.com/css?family=Open+Sans' rel='stylesheet' type='text/css'/>
+<style>
+  :root{
+    --bg:#39FF14; --fg:#141414;
+    --well:rgba(255,255,255,.6); --well-border:rgba(0,0,0,.2);
+    --border:rgba(0,0,0,.25);
+    --good:#157f15; --bad:#c62828;
+  }
+  body.dark{
+    --fg:#f2f2f2;
+    --well:rgba(0,0,0,.42); --well-border:rgba(255,255,255,.28);
+    --border:rgba(255,255,255,.3);
+    --good:#7CFC66; --bad:#ff6b6b;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    font-family:"Open Sans","Segoe UI",system-ui,Arial,sans-serif;
+    background:var(--bg); color:var(--fg);
+    min-height:100vh; display:flex; flex-direction:column;
+    transition:background-color 1.1s ease;
+  }
+  body.noanim{ transition:none; }
+
+  .page-header{ text-align:center; padding:24px 14px 0; position:relative; z-index:2; }
+  .page-header h1{
+    font-size:30px; font-weight:600; margin:0 auto 0; padding-bottom:13px;
+    max-width:680px; border-bottom:1px solid var(--border);
+  }
+
+  main{ flex:1; position:relative; z-index:2; }
+  .container{ max-width:680px; margin:0 auto; padding:0 14px 26px; text-align:center; }
+
+  .level-info{ margin:18px 0 2px; }
+  .level-num{ font-size:24px; font-weight:700; letter-spacing:.3px; }
+  .level-num .burst{
+    font-size:11px; font-weight:800; letter-spacing:1.5px; padding:2px 8px;
+    border:1px solid var(--border); border-radius:4px; margin-left:8px; vertical-align:3px;
+  }
+  .level-stats{ font-size:14px; margin-top:3px; opacity:.85; letter-spacing:.2px; }
+  .level-stats b{ font-weight:700; }
+
+  .controls{ margin:14px 0 4px; font-size:15px; }
+  .ctrl-row{ display:flex; justify-content:center; gap:24px; align-items:center; margin:9px 0; flex-wrap:wrap; }
+  .ctrl-row label{ display:flex; align-items:center; gap:7px; cursor:pointer; }
+  .text-input{
+    width:70px; text-align:center; font-size:17px; font-weight:700; padding:5px 8px;
+    border:1px solid #ccc; border-radius:4px; color:#333; background:#fff;
+    text-transform:uppercase; margin-left:6px;
+  }
+  .text-input:focus{ outline:none; border-color:#66afe9; box-shadow:0 0 5px rgba(102,175,233,.5); }
+  .text-input:disabled{ opacity:.5; }
+
+  .btn-row{ margin:16px 0 8px; display:flex; justify-content:center; gap:10px; flex-wrap:wrap; }
+  .btn{
+    display:inline-block; font-family:inherit; font-size:15px; font-weight:600;
+    color:#333; background:#fff; border:1px solid #ccc; border-radius:4px;
+    padding:7px 16px; cursor:pointer; user-select:none;
+    transition:background-color .12s, border-color .12s;
+  }
+  .btn:hover{ background:#e6e6e6; border-color:#adadad; }
+  .btn:active{ background:#d9d9d9; box-shadow:inset 0 3px 5px rgba(0,0,0,.125); }
+  .btn:disabled{ opacity:.5; cursor:default; }
+  .btn:disabled:active{ box-shadow:none; }
+  .btn-strong{ font-weight:800; font-size:16px; padding:9px 22px; }
+
+  .status{ margin:8px 0 2px; font-size:15px; min-height:22px; opacity:.95; }
+  .status.good{ color:var(--good); font-weight:700; }
+  .status.bad{ color:var(--bad); font-weight:700; }
+
+  h3{ font-size:16px; margin:18px 0 6px; font-weight:700; letter-spacing:.3px; }
+  .result{ font-size:18px; line-height:1.7; min-height:86px; }
+  .result .good{ color:var(--good); font-weight:700; }
+  .result .bad{ color:var(--bad); font-weight:700; }
+
+  .msg{ font-size:18px; font-weight:700; margin:8px 0 0; min-height:24px; }
+  .msg.good{ color:var(--good); }
+  .msg.bad{ color:var(--bad); }
+
+  .advice{
+    max-width:540px; margin:10px auto 0; padding:10px 14px; font-size:14px; line-height:1.5;
+    border:1px dashed var(--well-border); border-radius:6px; text-align:left;
+    background:var(--well);
+  }
+
+  .chart{ margin:14px auto 0; width:100%; max-width:600px; height:300px; }
+  .chart-placeholder{
+    width:100%; height:100%; display:flex; align-items:center; justify-content:center;
+    border:1px dashed var(--border); border-radius:6px; font-size:13px; opacity:.6;
+  }
+
+  footer{
+    text-align:center; font-size:12.5px; opacity:.8; padding:8px 14px 14px; position:relative; z-index:2;
+  }
+  footer a{ color:inherit; }
+
+  /* soft veil over the background so colors are easy on the eyes */
+  body::after{
+    content:""; position:fixed; inset:0; pointer-events:none; z-index:1;
+    background:rgba(255,255,255,.12);
+  }
+  body.dark::after{ background:rgba(0,0,0,.14); }
+
+  /* break line — normal-sized, ignorable, below the results */
+  .break-line{
+    margin:14px auto 0; max-width:560px; font-size:15px;
+    padding:8px 14px; border:1px solid rgba(200,40,40,.35); border-radius:6px;
+    background:rgba(255,255,255,.6); color:#b71c1c;
+  }
+  body.dark .break-line{ background:rgba(0,0,0,.4); color:#ff8a80; border-color:rgba(255,138,128,.4); }
+  .break-line .btn{ margin-left:10px; font-size:13px; padding:4px 10px; }
+  .break-timer{ font-family:Consolas,monospace; font-weight:700; }
+
+  /* trajectory overlay — full opacity, right side, long-lived */
+  .traj{
+    position:fixed; right:26px; top:50%; transform:translateY(-50%);
+    background:#fff; border:1px solid #ccc; border-radius:8px;
+    padding:12px 16px; z-index:60; pointer-events:none;
+    opacity:0; transition:opacity .6s ease;
+    box-shadow:0 6px 24px rgba(0,0,0,.28); max-width:340px;
+  }
+  .traj.show{ opacity:1; }
+  .traj-row{ display:flex; align-items:center; gap:10px; }
+  .traj-row + .traj-row{ margin-top:5px; }
+  .traj-label{ font-weight:700; font-size:14px; width:70px; flex:none; text-align:right; }
+  .traj-label.ok{ color:#2e7d32; }
+  .traj-label.bad{ color:#c62828; }
+  .traj svg{ display:block; }
+
+  /* ---- online leaderboard ---- */
+  .online{ max-width:680px; margin:22px auto 0; padding:0 14px; text-align:center; position:relative; z-index:2; }
+  .online-stats{ display:flex; justify-content:center; gap:18px; flex-wrap:wrap; font-size:13.5px; opacity:.95; margin:6px 0 12px; }
+  .online-stats b{ font-weight:700; }
+  .lb-wrap{ overflow-x:auto; border:1px solid var(--border); border-radius:8px; background:var(--well); }
+  .lb-table{ width:100%; border-collapse:collapse; font-size:14px; }
+  .lb-table th{ font-size:12px; letter-spacing:.6px; text-transform:uppercase; opacity:.75; padding:8px 10px; border-bottom:1px solid var(--border); }
+  .lb-table td{ padding:7px 10px; border-bottom:1px solid var(--border); }
+  .lb-table tr:last-child td{ border-bottom:none; }
+  .lb-table .lb-rank{ font-weight:800; width:44px; }
+  .lb-table .lb-lvl{ font-weight:700; }
+  .lb-table .lb-me{ background:rgba(255,255,0,.14); }
+  .lb-muted{ opacity:.65; font-size:13px; }
+  .lb-actions{ margin-top:8px; display:flex; align-items:center; justify-content:center; gap:10px; }
+  .name-chip{ font-size:13px; border:1px dashed var(--well-border); border-radius:6px; padding:6px 10px; background:var(--well); cursor:pointer; }
+  @media (max-width:640px){
+    .page-header h1{ font-size:23px; }
+    .result{ font-size:16px; }
+    .traj{ right:12px; left:12px; transform:none; top:auto; bottom:14px; margin:0 auto; max-width:340px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>osu! Stamina Improver</h1>
+</div>
+
+<main>
+  <div class="container">
+    <div class="level-info" id="levelInfo"></div>
+
+    <div class="controls">
+      <div class="ctrl-row">
+        <label>Key 1 <input id="key1" class="text-input" maxlength="1" value="Z"></label>
+        <label>Key 2 <input id="key2" class="text-input" maxlength="1" value="X"></label>
+      </div>
+      <div class="ctrl-row">
+        <label><input type="checkbox" id="metroChk"> Metronome</label>
+        <label><input type="checkbox" id="mouseChk"> Enable mouse buttons</label>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button id="btnBegin" class="btn">Begin</button>
+      <button id="btnStop" class="btn" style="display:none">Stop Test</button>
+      <button id="btnTest" class="btn">Test Me</button>
+      <button id="btnReset" class="btn">Reset</button>
+      <button id="btnPrimary" class="btn btn-strong" style="display:none">continue →</button>
+      <button id="btnMenu" class="btn" style="display:none">Menu</button>
+    </div>
+
+    <div class="status" id="status">Time starts when you make your first click.</div>
+
+    <h3>Your Results:</h3>
+    <div class="result" id="result">
+      Tap Speed: 0 taps / 0 seconds.<br>
+      Stream Speed: 0 bpm.<br>
+      Unstable Rate: 0.
+    </div>
+
+    <div class="msg" id="msg"></div>
+    <div class="advice" id="advice" style="display:none"></div>
+
+    <!-- break line: normal-sized, ignorable, below the results -->
+    <div class="break-line" id="breakLine" style="display:none">
+      <b>break</b> <span class="break-timer" id="breakTimer">00:05</span> — <span id="breakMsg"></span>
+      <button class="btn" id="breakSkip">skip</button>
+    </div>
+
+    <div class="chart" id="chartContainer"><div class="chart-placeholder">chart (needs internet for jQuery)</div></div>
+  </div>
+</main>
+
+
+<section class="online" id="onlineSection">
+  <h3>Global Leaderboard</h3>
+  <div class="online-stats" id="onlineStats">loading global stats&hellip;</div>
+  <div class="lb-wrap">
+    <table class="lb-table" id="lbTable">
+      <thead><tr><th>#</th><th>player</th><th>level</th><th>bpm</th><th>ur</th><th>taps</th></tr></thead>
+      <tbody id="lbBody"><tr><td colspan="6" class="lb-muted">loading&hellip;</td></tr></tbody>
+    </table>
+  </div>
+  <div class="lb-actions">
+    <button class="btn" id="btnRefreshLb">refresh</button>
+    <span class="lb-muted" id="lbStatus"></span>
+  </div>
+</section>
+<footer>
+  osu! Stamina Improver · based on <a href="https://github.com/ckrisirkc/osuStreamSpeed.js" target="_blank" rel="noopener">osu! Stream Speed Benchmark</a> by arctic, rewritten by Yepstare
+</footer>
+
+<!-- trajectory overlay -->
+<div class="traj" id="traj">
+  <div class="traj-row">
+    <div class="traj-label ok">✓ steady</div>
+    <span id="trajGood"></span>
+  </div>
+  <div class="traj-row">
+    <div class="traj-label bad">✗ erratic</div>
+    <span id="trajBad"></span>
+  </div>
+</div>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+<script src="jquery.canvasjs.min.js"></script>
+<script>
+'use strict';
+/* =====================================================================
+   osu! Stamina Improver  (reference-simple UI, reference math)
+   - pure logic section is DOM-free so it can be unit-tested in node
+   ===================================================================== */
+
+/* ---------------- utils (pure) ---------------- */
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const round1 = v => Math.round(v * 10) / 10;
+const lerp = (a, b, t) => a + (b - a) * t;
+function fmtMMSS(sec) {
+  sec = Math.max(0, Math.ceil(sec));
+  const m = Math.floor(sec / 60), s = sec % 60;
+  return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+}
+
+/* ---------------- theme (pure) ---------------- */
+// soft palette so the background doesn't hurt: still green -> yellow -> red -> maroon -> grey
+// (levels 1-50 -> 51-100 -> 101-150 -> 151-200), capped at grey from 200 on
+const COLOR_STOPS = [
+  [0x7B, 0xD8, 0x8F], // soft green
+  [0xF2, 0xE5, 0x7C], // soft yellow
+  [0xF2, 0x8B, 0x8B], // soft red
+  [0xB0, 0x60, 0x60], // soft maroon
+  [0xA9, 0xA9, 0xA9]  // grey
+];
+function bgColorForLevel(L) {
+  const segRaw = Math.floor((L - 1) / 50);
+  if (segRaw >= 4) {  // capped at grey from level 200 on
+    const G = COLOR_STOPS[4];
+    return { r: G[0], g: G[1], b: G[2] };
+  }
+  const seg = segRaw;
+  const step = Math.floor(((L - 1) % 50) / 5);   // changes every 5 levels
+  const t = step / 9;
+  const A = COLOR_STOPS[seg], B = COLOR_STOPS[seg + 1];
+  return {
+    r: Math.round(lerp(A[0], B[0], t)),
+    g: Math.round(lerp(A[1], B[1], t)),
+    b: Math.round(lerp(A[2], B[2], t))
+  };
+}
+
+/* ---------------- level formula (pure) ---------------- */
+/*
+ * bpm scale = osu! stream speed (reference formula): 1 click = 1/4 note,
+ * so stream speed bpm = clicksPerMinute / 4  =  15000 / clickIntervalMs.
+ *   170bpm  -> click every 88.2ms (4 notes per beat)
+ * levels 1-79 : lenient ramp  100bpm/350UR/6 notes -> 170bpm/200UR/64 notes
+ * levels 80+  : 10-level cycles. even position = stamina level,
+ *               odd position = BURST: 8 notes at (330/270) x the stamina bpm, same UR.
+ *   stamina bpm = 170 + 2 per stamina level + floor(cycle/2)  -> L90 = 180, L230 = 327
+ *   stamina UR  = 200 - 5k within cycle, -20 for cycle 1, then -4 per cycle, floor 95
+ *                 -> L90 = 180, L230 = 124
+ *   notes       = 64+16k (cycle 0), 1024+32k (cycle 1 -> L90 = 1024),
+ *                 then base doubles every cycle, capped at 10000
+ */
+function levelSpec(L) {
+  L = Math.max(1, Math.floor(L));
+  if (L <= 79) {
+    const t = (L - 1) / 79;
+    return {
+      bpm: Math.round(100 + 70 * t),
+      ur: Math.round(350 - 150 * t),
+      notes: Math.round(6 + 58 * t),
+      burst: false
+    };
+  }
+  const idx = L - 80;
+  const cyc = Math.floor(idx / 10);
+  const pos = idx % 10;
+  if (pos % 2 === 1) {
+    const j = (pos - 1) / 2;
+    const base = staminaSpec(cyc, j);
+    return { bpm: base.bpm * (330 / 270), ur: base.ur, notes: 8, burst: true };
+  }
+  return staminaSpec(cyc, pos / 2);
+}
+
+function staminaSpec(cyc, k) {
+  const bpm = 170 + 2 * (5 * cyc + k) + Math.floor(cyc / 2);
+  let ur = 200 - 5 * k;
+  if (cyc >= 1) ur -= 20 + 4 * (cyc - 1);
+  ur = Math.max(95, ur);
+  let notes;
+  if (cyc === 0) notes = 64 + 16 * k;
+  else if (cyc === 1) notes = 1024 + 32 * k;
+  else notes = 1024 * Math.pow(2, cyc - 1) + 16 * Math.pow(2, cyc) * k;
+  notes = Math.min(10000, Math.round(notes));
+  return { bpm, ur, notes, burst: false };
+}
+
+/* break length: notes / userBpm * 15 / 6, rounded up -> MM:SS
+   120 notes @ 200bpm = 1.5s -> 00:02 */
+function breakSeconds(notes, userBpm) {
+  return Math.max(1, Math.ceil(notes * 15 / (Math.max(1, userBpm) * 6)));
+}
+
+/* ---------------- measurement (pure, reference math) ---------------- */
+/*
+ * Reference (NOTES.md):
+ *   Stream Speed = (clicks / elapsed_ms * 60000) / 4     (osu! 1/4 streams)
+ *   Unstable Rate = 10 * population stdev(inter-click intervals)
+ */
+function analyze(times) {
+  const n = times.length;
+  if (n < 2) return { bpm: 0, ur: 0, elapsed: 0 };
+  const elapsed = times[n - 1] - times[0];
+  if (elapsed <= 0) return { bpm: 0, ur: 0, elapsed: 0 };
+  const bpm = (n / elapsed) * 60000 / 4;
+  const diffs = [];
+  for (let i = 1; i < n; i++) diffs.push(times[i] - times[i - 1]);
+  let mean = 0;
+  for (const d of diffs) mean += d;
+  mean /= diffs.length;
+  let ss = 0;
+  for (const d of diffs) ss += (d - mean) * (d - mean);
+  const ur = 10 * Math.sqrt(ss / diffs.length);
+  return { bpm, ur, elapsed };
+}
+
+/* cumulative bpm at click #c (1-based), reference formula */
+function cumulativeBpm(c, elapsedMs) {
+  if (elapsedMs <= 0) return 0;
+  return Math.round(((c / elapsedMs) * 60000 / 4) * 100) / 100;
+}
+
+/* ---------------- text ---------------- */
+const BREAK_MSGS = [
+  'shake your hands out, drink some water',
+  'stretch those fingers — next one\'s a doozy',
+  'breathe in, breathe out. you got this'
+];
+const ADVICE = {
+  bpm: "You're under tempo. Tap along to the metronome for a few seconds before starting, and snap back to it on every note — if it feels heavy, grind a few levels down and come back.",
+  ur: "Slow down a touch and lock into a steady rhythm — consistency first, speed later. Keep your hand relaxed and let the keys bounce your fingers back up; you can't stream fast until you stream even."
+};
+const BENCHES = [
+  { bpm: 120, notes: 20 },
+  { bpm: 150, notes: 28 },
+  { bpm: 180, notes: 64 }
+];
+
+/* =====================================================================
+   UI layer
+   ===================================================================== */
+if (typeof document !== 'undefined') {
+
+const $ = id => document.getElementById(id);
+
+/* ---------------- store ---------------- */
+const store = {
+  get level() { try { const v = +localStorage.getItem('osi_level'); return (v >= 1 && v | 0) || 1; } catch (e) { return 1; } },
+  set level(v) { try { localStorage.setItem('osi_level', Math.max(1, v | 0)); } catch (e) {} },
+  get best() { try { return +localStorage.getItem('osi_best') || 1; } catch (e) { return 1; } },
+  set best(v) { try { if (v > this.best) localStorage.setItem('osi_best', v | 0); } catch (e) {} },
+  get tested() { try { return localStorage.getItem('osi_tested') === '1'; } catch (e) { return false; } },
+  set tested(v) { try { localStorage.setItem('osi_tested', v ? '1' : '0'); } catch (e) {} }
+};
+
+/* ---------------- audio (accurate metronome with osu! hitwhistle sounds) ---------------- */
+let actx = null;
+function ensureAudio() {
+  if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+  if (actx.state === 'suspended') actx.resume();
+  return actx;
+}
+function beepAt(time, freq, dur, vol) {
+  try {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = 'square'; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol || 0.07, time);
+    g.gain.exponentialRampToValueAtTime(0.0001, time + (dur || 0.04));
+    o.connect(g); g.connect(actx.destination);
+    o.start(time); o.stop(time + (dur || 0.04) + 0.02);
+  } catch (e) {}
+}
+
+/* osu! hit sounds (drop the .ogg files next to index.html).
+   preferred: drum-hitnormal.ogg (soft) — falls back to soft-hitwhistle3.ogg,
+   then drum-hitwhistle.ogg, then a quiet beep. */
+const SND_ORDER = ['drum-hitnormal.ogg', 'soft-hitwhistle3.ogg', 'drum-hitwhistle.ogg'];
+let sndBest = null;
+function probeSound(src, okFn) {
+  try {
+    const a = new Audio(src);
+    a.preload = 'auto';
+    a.addEventListener('canplaythrough', () => okFn(true), { once: true });
+    a.addEventListener('error', () => okFn(false), { once: true });
+  } catch (e) { okFn(false); }
+}
+function initSounds() {
+  let done = false;
+  SND_ORDER.forEach(src => probeSound(src, ok => { if (ok && !done) { sndBest = src; done = true; } }));
+}
+function playAudio(src, vol) {
+  try {
+    const a = new Audio(src);
+    a.volume = vol;
+    const p = a.play();
+    if (p && p.catch) p.catch(() => {});
+  } catch (e) {}
+}
+function playTickSound() {
+  if (sndBest) playAudio(sndBest, 0.22);
+  else beepAt(metro.next, 880, 0.04, 0.04);
+}
+function playBeatSound() {
+  if (sndBest) playAudio(sndBest, 0.4);
+  else beepAt(metro.next, 660, 0.06, 0.06);
+}
+
+const metro = { enabled: true, timer: 0, next: 0, interval: 0, tickCount: 0, LOOKAHEAD: 0.12 };
+/* ticks at exactly the 1/4-note rate of the target bpm: interval = 15000/bpm ms,
+   accent (drum) on the first tick of every 4 (one beat) */
+function metroStart(bpm) {
+  metroStop();
+  if (!metro.enabled) return;
+  try {
+    ensureAudio();
+    metro.interval = 15000 / bpm / 1000;      // seconds per click
+    metro.next = actx.currentTime + 0.1;
+    metro.tickCount = 0;
+    metro.timer = setInterval(metroTick, 25);
+  } catch (e) {}
+}
+function metroTick() {
+  while (metro.next < actx.currentTime + metro.LOOKAHEAD) {
+    metro.tickCount++;
+    if (metro.tickCount % 4 === 1) playBeatSound(); else playTickSound();
+    metro.next += metro.interval;
+  }
+}
+function metroStop() {
+  if (metro.timer) { clearInterval(metro.timer); metro.timer = 0; }
+}
+
+/* ---------------- theme ---------------- */
+function applyTheme(L) {
+  const c = bgColorForLevel(L);
+  document.body.classList.remove('breakmode');
+  document.body.classList.toggle('dark', (0.299 * c.r + 0.587 * c.g + 0.114 * c.b) <= 150);
+  document.body.classList.remove('noanim');
+  document.body.style.setProperty('--bg', 'rgb(' + c.r + ',' + c.g + ',' + c.b + ')');
+}
+
+/* ---------------- state ---------------- */
+/* idle -> ready -> running -> doneLevel | doneTest | idle
+   break is an overlay screen between levels */
+const S = {
+  state: 'idle',
+  mode: 'level',            // level | bench | test
+  levelNum: 1,
+  spec: null,
+  count: 0,
+  times: [],                // ms offsets from first click
+  startTime: 0,
+  keys: { k1: 'z', k2: 'x' },
+  mouse: false,
+  benchIdx: 0,
+  benchResults: [],
+  timers: [],
+  breakInterval: 0,
+  chartData: []
+};
+function clearTimers() {
+  S.timers.forEach(clearTimeout); S.timers = [];
+  if (S.breakInterval) { clearInterval(S.breakInterval); S.breakInterval = 0; }
+}
+
+/* ---------------- controls ---------------- */
+function setBtn(id, visible) { $(id).style.display = visible ? '' : 'none'; }
+function setInputsDisabled(d) {
+  $('key1').disabled = d; $('key2').disabled = d;
+  $('metroChk').disabled = d; $('mouseChk').disabled = d;
+}
+function setStatus(text, cls) {
+  const el = $('status');
+  el.textContent = text || '';
+  el.className = 'status' + (cls ? ' ' + cls : '');
+}
+function setMsg(text, cls) {
+  const el = $('msg');
+  el.textContent = text || '';
+  el.className = 'msg' + (cls ? ' ' + cls : '');
+}
+
+/* ---------------- chart ---------------- */
+function hasChart() {
+  return !!(window.jQuery && jQuery.fn && jQuery.fn.CanvasJSChart);
+}
+function clearChart() {
+  S.chartData = [];
+  $('chartContainer').innerHTML = '';
+  if (hasChart()) renderChart();
+}
+function addChartPoint() {
+  const c = S.count, elapsed = S.times[c - 1];
+  if (c < 2 || elapsed <= 0) return;
+  S.chartData.push({ x: elapsed / 1000, y: cumulativeBpm(c, elapsed) });   // time in seconds
+  renderChart();
+}
+function renderChart() {
+  if (!hasChart()) return;
+  jQuery('#chartContainer').CanvasJSChart({
+    zoomEnabled: true,
+    exportEnabled: true,
+    animationEnabled: false,
+    title: { text: 'Stream Speed (cumulative bpm)' },
+    axisX: { title: 'time (s)' },
+    axisY: { title: 'bpm', minimum: 0 },
+    data: [{ type: 'spline', dataPoints: S.chartData.slice() }]
+  });
+}
+
+/* ---------------- flow ---------------- */
+function showResult(r) {
+  const secs = r.elapsed ? (r.elapsed / 1000) : 0;
+  const level = S.mode === 'level';
+  const bpmOk = level && r.bpm >= S.spec.bpm;      // green above target, red below
+  const urOk = level && r.ur < S.spec.ur;          // green below max UR, red above
+  const span = ok => level ? (ok ? '<span class="good">' : '<span class="bad">') : '';
+  $('result').innerHTML =
+    'Tap Speed: ' + S.count + ' taps / ' + round1(secs) + ' seconds.<br>' +
+    'Stream Speed: ' + span(bpmOk) + (Math.round(r.bpm * 100) / 100) + (level ? '</span>' : '') + ' bpm.<br>' +
+    'Unstable Rate: ' + span(urOk) + (Math.round(r.ur * 100000) / 100000).toFixed(3) + (level ? '</span>' : '') + '.';
+}
+
+function goIdle(msgText) {
+  clearTimers();
+  metroStop();
+  S.state = 'idle'; S.mode = 'level';
+  const L = store.level, sp = levelSpec(L);
+  applyTheme(L);
+  S.levelNum = L; S.spec = sp;
+  $('levelInfo').innerHTML =
+    '<div class="level-num">Level <b>' + L + '</b>' + (sp.burst ? '<span class="burst">BURST</span>' : '') + '</div>' +
+    '<div class="level-stats">target <b>' + (sp.burst ? round1(sp.bpm) : sp.bpm) + ' bpm</b> · UR &lt; <b>' + sp.ur + '</b> · <b>' + sp.notes + ' notes</b></div>';
+  setBtn('btnBegin', true); setBtn('btnTest', !store.tested); setBtn('btnReset', true);
+  setBtn('btnStop', false); setBtn('btnPrimary', false); setBtn('btnMenu', false);
+  setInputsDisabled(false);
+  setStatus(msgText || 'Time starts when you make your first click.');
+  setMsg('');
+  $('advice').style.display = 'none';
+  $('result').innerHTML = 'Tap Speed: 0 taps / 0 seconds.<br>Stream Speed: 0 bpm.<br>Unstable Rate: 0.';
+  clearChart();
+}
+
+function beginLevel(L, benchIdx) {
+  clearTimers();
+  S.mode = benchIdx !== undefined ? 'bench' : 'level';
+  S.benchIdx = benchIdx !== undefined ? benchIdx : -1;
+  S.levelNum = L;
+  S.spec = benchIdx !== undefined
+    ? { bpm: BENCHES[benchIdx].bpm, ur: Infinity, notes: BENCHES[benchIdx].notes, burst: false }
+    : levelSpec(L);
+  S.count = 0; S.times = []; S.state = 'ready';
+  if (S.mode !== 'bench') applyTheme(L);   // benchmarks keep the current page color
+  const sp = S.spec;
+  if (S.mode === 'bench') {
+    $('levelInfo').innerHTML =
+      '<div class="level-num">Benchmark <b>' + (benchIdx + 1) + '/3</b></div>' +
+      '<div class="level-stats">stream <b>' + sp.notes + ' notes</b> at your own pace</div>';
+    setStatus('first click starts · no fail here, just stream ' + sp.notes + ' notes');
+  } else {
+    $('levelInfo').innerHTML =
+      '<div class="level-num">Level <b>' + L + '</b>' + (sp.burst ? '<span class="burst">BURST</span>' : '') + '</div>' +
+      '<div class="level-stats">target <b>' + (sp.burst ? round1(sp.bpm) : sp.bpm) + ' bpm</b> · UR &lt; <b>' + sp.ur + '</b> · <b>' + sp.notes + ' notes</b></div>';
+    setStatus('Notes: 0 / ' + sp.notes + ' · time starts on your first click');
+  }
+  setMsg('');
+  $('advice').style.display = 'none';
+  $('result').innerHTML = 'Tap Speed: 0 taps / 0 seconds.<br>Stream Speed: 0 bpm.<br>Unstable Rate: 0.';
+  setBtn('btnBegin', false); setBtn('btnTest', false); setBtn('btnReset', false);
+  setBtn('btnStop', true); setBtn('btnPrimary', false); setBtn('btnMenu', false);
+  setInputsDisabled(true);
+  clearChart();
+  if (S.mode !== 'bench') metroStart(sp.bpm);   // no scheduled metronome in benchmarks — clicks speak for themselves
+}
+
+function stopTest() {
+  metroStop();
+  clearChart();
+  goIdle('stopped — no judgment, no penalty.');
+}
+
+function press() {
+  if (S.state === 'ready') {
+    S.state = 'running';
+    S.startTime = performance.now();
+    S.times.push(0);
+    S.count = 1;
+    if (S.mode === 'bench') playTickSound();   // bench: every click plays the mp3 at whatever bpm you're doing
+    showResult(analyze(S.times));
+    addChartPoint();
+    setStatus('Notes: 1 / ' + S.spec.notes + (S.mode === 'bench' ? ' · benchmark ' + (S.benchIdx + 1) + '/3' : ''));
+    if (S.count >= S.spec.notes) finishRun();
+    return;
+  }
+  if (S.state !== 'running') return;
+  if (S.count >= S.spec.notes) return;
+  const now = performance.now();
+  S.count++;
+  S.times.push(now - S.startTime);
+  if (S.mode === 'bench') playTickSound();
+  showResult(analyze(S.times));
+  addChartPoint();
+  setStatus('Notes: ' + S.count + ' / ' + S.spec.notes + (S.mode === 'bench' ? ' · benchmark ' + (S.benchIdx + 1) + '/3' : ''));
+  if (S.count >= S.spec.notes) finishRun();
+}
+
+function finishRun() {
+  metroStop();
+  S.state = 'done';
+  const r = analyze(S.times);
+  const sp = S.spec;
+
+  if (S.mode === 'bench') {
+    S.benchResults.push({ bpm: r.bpm, ur: r.ur });
+    if (S.benchIdx + 1 < BENCHES.length) {
+      setStatus('benchmark ' + (S.benchIdx + 1) + '/3 done — next up…');
+      S.timers.push(setTimeout(() => beginLevel(BENCHES[S.benchIdx + 1].bpm, S.benchIdx + 1), 1200));
+    } else {
+      S.timers.push(setTimeout(showTestResult, 1200));
+    }
+    return;
+  }
+
+  const pass = r.bpm >= sp.bpm && r.ur < sp.ur;
+  setBtn('btnStop', false);
+  if (pass) {
+    store.level = S.levelNum + 1;
+    store.best = S.levelNum;
+    setStatus('Level ' + S.levelNum + ' cleared!', 'good');
+    if (window.OSISubmit) window.OSISubmit(S.levelNum, r, sp, S.times);
+    setMsg('');
+    $('advice').style.display = 'none';
+    setBtn('btnPrimary', true);
+    setBtn('btnMenu', true);
+    const secs = breakSeconds(S.spec.notes, r.bpm);
+    if (secs > 3) {
+      // break starts the moment the last note is clicked
+      $('btnPrimary').textContent = 'skip break →';
+      showBreak(r.bpm);
+    } else {
+      // short break (<=3s): no break shown, just move on
+      $('btnPrimary').textContent = 'next level →';
+      S.timers.push(setTimeout(() => { if (S.state === 'done') beginLevel(store.level); }, 2000));
+    }
+  } else {
+    if (r.bpm < sp.bpm) { setMsg('bpm too low.', 'bad'); }
+    else { setMsg('the unstable rate is too high', 'bad'); showTrajectory(); }
+    setStatus('Level ' + S.levelNum + ' failed', 'bad');
+    $('advice').style.display = 'block';
+    $('advice').textContent = ADVICE[r.bpm < sp.bpm ? 'bpm' : 'ur'];
+    $('btnPrimary').textContent = 'retry';
+    setBtn('btnPrimary', true);
+    setBtn('btnMenu', true);
+  }
+}
+
+function primaryAction() {
+  if (S.state === 'break') { skipBreak(); return; }   // pressing continue/skip during the break = skip
+  if (S.mode === 'bench') { goIdle(); return; }   // not reachable in normal flow
+  if (S.mode === 'test') { beginLevel(store.level); return; }   // start placed level
+  if ($('status').className.indexOf('good') >= 0) {
+    beginLevel(store.level);   // pass without a break (<=3s): go to the next level
+  } else {
+    beginLevel(S.levelNum);    // retry the failed level
+  }
+}
+
+/* ---------------- break ---------------- */
+function showBreak(userBpm) {
+  clearTimers();
+  metroStop();
+  S.state = 'break';
+  $('breakMsg').textContent = BREAK_MSGS[Math.floor(Math.random() * BREAK_MSGS.length)];
+  const secs = breakSeconds(S.spec.notes, userBpm);
+  const end = performance.now() + secs * 1000;
+  $('breakTimer').textContent = fmtMMSS(secs);
+  $('breakLine').style.display = '';
+  S.breakInterval = setInterval(() => {
+    const left = Math.max(0, (end - performance.now()) / 1000);
+    $('breakTimer').textContent = fmtMMSS(left);
+    if (left <= 0) { clearInterval(S.breakInterval); S.breakInterval = 0; nextLevel(); }
+  }, 200);
+}
+function skipBreak() {
+  if (S.breakInterval) { clearInterval(S.breakInterval); S.breakInterval = 0; }
+  nextLevel();
+}
+function nextLevel() {
+  $('breakLine').style.display = 'none';
+  beginLevel(store.level);
+}
+
+/* ---------------- trajectory overlay ---------------- */
+function trajSVG(offsets, color) {
+  const w = 300, h = 90, mid = h / 2;
+  // white backdrop + responsive sizing so nothing ever pokes outside the box
+  let s = '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;max-width:300px;height:auto;display:block">';
+  s += '<rect x="0" y="0" width="' + w + '" height="' + h + '" fill="#ffffff" rx="5"/>';
+  s += '<line x1="12" y1="' + mid + '" x2="' + (w - 12) + '" y2="' + mid + '" stroke="#999999" stroke-width="1.5" opacity="0.55"/>';
+  offsets.forEach((o, i) => {
+    const x = w / 2 + o;
+    if (x < 12 || x > w - 12) return;
+    // each press = one short tap mark, same length every time (it's not a hold)
+    s += '<line x1="' + x.toFixed(1) + '" y1="' + (mid - 6) + '" x2="' + x.toFixed(1) + '" y2="' + (mid + 6) + '" stroke="' + color + '" stroke-width="3" stroke-linecap="round"/>';
+    s += '<circle cx="' + x.toFixed(1) + '" cy="' + (mid - 9) + '" r="2.6" fill="' + color + '"/>';
+    // static key dot under the needle: small blue/yellow circle, alternating per needle
+    const dot = (i % 2 === 0) ? '#1E88E5' : '#FFD400';
+    s += '<circle cx="' + x.toFixed(1) + '" cy="' + (h - 14) + '" r="3.5" fill="' + dot + '" stroke="#333333" stroke-width="0.5"/>';
+  });
+  return s + '</svg>';
+}
+function gauss(sigma) {
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return sigma * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+function showTrajectory() {
+  const good = [], bad = [];
+  for (let i = 0; i < 14; i++) bad.push((Math.random() * 2 - 1) * 42);   // erratic: scattered wide
+  for (let i = 0; i < 10; i++) {
+    // steady: perfectly even spacing, zero jitter — every needle exactly 8px apart
+    good.push(-36 + (72 * i) / 9);
+  }
+  $('trajGood').innerHTML = trajSVG(good, '#2e7d32');
+  $('trajBad').innerHTML = trajSVG(bad, '#c62828');
+  const traj = $('traj');
+  traj.classList.add('show');
+  S.timers.push(setTimeout(() => {
+    traj.classList.remove('show');
+    setTimeout(() => { traj.innerHTML = ''; }, 600);
+  }, 20000 + Math.random() * 20000));
+}
+
+/* ---------------- test me ---------------- */
+function testMe() {
+  clearTimers();
+  S.benchResults = [];
+  beginLevel(BENCHES[0].bpm, 0);
+}
+function showTestResult() {
+  clearTimers();
+  metroStop();
+  S.state = 'done';
+  S.mode = 'test';
+  applyTheme(store.level);
+  let b = 0, u = 0;
+  S.benchResults.forEach(r => { b += r.bpm; u += r.ur; });
+  const avgBpm = b / S.benchResults.length;
+  const avgUr = u / S.benchResults.length;
+
+  let beaten = 0;
+  for (let L = 1; L <= 5000; L++) {
+    const sp = levelSpec(L);
+    if (!sp.burst && sp.bpm > avgBpm) break;
+    if (avgBpm >= sp.bpm && avgUr < sp.ur) beaten = L;
+  }
+  const next = beaten + 1;
+  store.level = next;
+  $('levelInfo').innerHTML =
+    '<div class="level-num">Test results</div>' +
+    '<div class="level-stats">you streamed <b>' + Math.round(avgBpm) + ' bpm</b> avg · UR <b>' + Math.round(avgUr) + '</b> avg</div>';
+  setStatus('hardest level you beat: ' + beaten + ' — you\'ll start at level ' + next, 'good');
+  setMsg('');
+  $('advice').style.display = 'none';
+  $('result').innerHTML =
+    'Tap Speed: —<br>' +
+    'Stream Speed: ' + Math.round(avgBpm * 100) / 100 + ' bpm (avg).<br>' +
+    'Unstable Rate: ' + Math.round(avgUr * 1000) / 1000 + ' (avg).';
+  $('btnPrimary').textContent = 'start level ' + next + ' →';
+  setBtn('btnStop', false);
+  setBtn('btnPrimary', true);
+  setBtn('btnMenu', true);
+  store.tested = true;                     // test me button disappears from now on
+  S.timers.push(setTimeout(() => {         // no need to press begin — level starts by itself
+    if (S.state === 'done' && S.mode === 'test') beginLevel(store.level);
+  }, 6000));
+}
+
+/* ---------------- input ---------------- */
+const keysDown = {};
+window.addEventListener('keydown', e => {
+  if (e.repeat) return;
+  if (e.target && e.target.tagName === 'INPUT') return;
+  const k = e.key ? e.key.toLowerCase() : '';
+
+  if (S.state === 'ready' || S.state === 'running') {
+    if (k === S.keys.k1 || k === S.keys.k2) {   // only your two keys stream (spacebar does nothing here)
+      e.preventDefault();
+      if (keysDown[e.code]) return;
+      keysDown[e.code] = true;
+      press();
+      return;
+    }
+    if (e.code === 'Escape') { stopTest(); return; }
+    return;
+  }
+  if (S.state === 'idle') {
+    if (e.code === 'Enter') beginLevel(store.level);
+    else if (e.code === 'KeyT') testMe();
+    return;
+  }
+  if (S.state === 'done') {
+    if (e.code === 'Enter') primaryAction();
+    return;
+  }
+  if (S.state === 'break') {
+    if (e.code === 'Enter' || e.code === 'Space') skipBreak();
+  }
+});
+window.addEventListener('keyup', e => { keysDown[e.code] = false; });
+
+document.addEventListener('mousedown', e => {
+  if (!S.mouse) return;
+  if (S.state !== 'ready' && S.state !== 'running') return;
+  if (e.target && e.target.closest && e.target.closest('button, input, label')) return;
+  if (e.button !== 0 && e.button !== 2) return;
+  e.preventDefault();
+  press();
+}, { passive: false });
+document.addEventListener('contextmenu', e => {
+  if (S.mouse) e.preventDefault();
+});
+document.addEventListener('touchstart', e => {
+  if (!S.mouse) return;
+  if (S.state !== 'ready' && S.state !== 'running') return;
+  if (e.target && e.target.closest && e.target.closest('button, input, label')) return;
+  e.preventDefault();
+  press();
+}, { passive: false });
+
+/* ---------------- wire up ---------------- */
+$('btnBegin').addEventListener('click', () => beginLevel(store.level));
+$('btnStop').addEventListener('click', stopTest);
+$('btnTest').addEventListener('click', testMe);
+$('btnPrimary').addEventListener('click', primaryAction);
+$('btnMenu').addEventListener('click', () => goIdle());
+$('breakSkip').addEventListener('click', skipBreak);
+
+/* key + option persistence */
+const key1El = $('key1'), key2El = $('key2'), metroEl = $('metroChk'), mouseEl = $('mouseChk');
+function loadOptions() {
+  try {
+    S.keys.k1 = localStorage.getItem('osi_key1') || 'z';
+    S.keys.k2 = localStorage.getItem('osi_key2') || 'x';
+    S.mouse = localStorage.getItem('osi_mouse') === '1';
+    metro.enabled = localStorage.getItem('osi_metro') === '1';   // off by default
+  } catch (e) {}
+  key1El.value = S.keys.k1.toUpperCase();
+  key2El.value = S.keys.k2.toUpperCase();
+  metroEl.checked = metro.enabled;
+  mouseEl.checked = S.mouse;
+}
+key1El.addEventListener('input', () => {
+  const v = key1El.value.toLowerCase().replace(/[^a-z0-9 ]/g, '');
+  key1El.value = v.toUpperCase();
+  if (v) { S.keys.k1 = v; try { localStorage.setItem('osi_key1', v); } catch (e) {} }
+});
+key2El.addEventListener('input', () => {
+  const v = key2El.value.toLowerCase().replace(/[^a-z0-9 ]/g, '');
+  key2El.value = v.toUpperCase();
+  if (v) { S.keys.k2 = v; try { localStorage.setItem('osi_key2', v); } catch (e) {} }
+});
+metroEl.addEventListener('change', () => {
+  metro.enabled = metroEl.checked;
+  try { localStorage.setItem('osi_metro', metro.enabled ? '1' : '0'); } catch (e) {}
+});
+mouseEl.addEventListener('change', () => {
+  S.mouse = mouseEl.checked;
+  try { localStorage.setItem('osi_mouse', S.mouse ? '1' : '0'); } catch (e) {}
+});
+
+let resetArmed = false, resetTimer = 0;
+$('btnReset').addEventListener('click', () => {
+  if (!resetArmed) {
+    resetArmed = true;
+    $('btnReset').textContent = 'sure? click again';
+    resetTimer = setTimeout(() => {
+      resetArmed = false;
+      $('btnReset').textContent = 'Reset';
+    }, 3000);
+    return;
+  }
+  clearTimeout(resetTimer); resetArmed = false;
+  try {
+    localStorage.removeItem('osi_level');
+    localStorage.removeItem('osi_best');
+    localStorage.removeItem('osi_tested');
+  } catch (e) {}
+  goIdle('progress reset — back to level 1');
+});
+
+/* boot */
+loadOptions();
+initSounds();
+goIdle();
+
+} // end DOM guard
+
+/* exposed for tests */
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { levelSpec, staminaSpec, analyze, cumulativeBpm, bgColorForLevel, fmtMMSS, breakSeconds };
+}
+</script>
+
+<script>
+/* ================= online leaderboard module =================
+   Talks to the free Cloudflare Worker that validates submissions
+   by recomputing the run from raw click times (anti-cheat).      */
+(function () {
+  'use strict';
+
+  var API_BASE = window.OSI_API_BASE || 'WORKER_URL_PLACEHOLDER';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var myName = null;
+  try { myName = localStorage.getItem('osi_name'); } catch (e) {}
+
+  function setName(n) {
+    myName = n;
+    try { localStorage.setItem('osi_name', n); } catch (e) {}
+    renderNameChip();
+  }
+
+  function renderNameChip() {
+    var el = $('lbStatus');
+    if (el && myName) el.textContent = 'playing as ' + myName;
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function fmt(n, d) {
+    if (n === undefined || n === null || isNaN(n)) return '-';
+    return Number(n).toFixed(d === undefined ? 0 : d);
+  }
+
+  /* ---------- submit a cleared level ---------- */
+  window.OSISubmit = function (level, result, spec, times) {
+    if (!API_BASE || API_BASE.indexOf('https://') !== 0) return;
+    var name = myName;
+    if (!name) {
+      name = prompt('Level ' + level + ' cleared! Pick a display name for the global leaderboard (max 16 chars):', '');
+      if (!name) return; // player declined; do not nag again this session
+      name = name.trim().slice(0, 16);
+      if (!name) return;
+      setName(name);
+    }
+    var payload = {
+      name: name,
+      level: level,
+      bpm: result.bpm,
+      ur: result.ur,
+      notes: spec.notes,
+      elapsedMs: result.elapsed,
+      proof: { clicks: times }
+    };
+    fetch(API_BASE + '/api/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function (res) {
+      if (!res.ok) throw new Error('submit failed: ' + res.status);
+      return res.json();
+    }).then(function (data) {
+      var st = $('lbStatus');
+      if (st) st.textContent = 'score submitted (level ' + data.level + ')';
+      loadAll();
+    }).catch(function (err) {
+      console.warn('[osi] submit failed', err);
+      var st = $('lbStatus');
+      if (st) st.textContent = 'could not reach leaderboard (offline?)';
+    });
+  };
+
+  /* ---------- render ---------- */
+  function renderStats(s) {
+    var el = $('onlineStats');
+    if (!el) return;
+    if (!s || !s.players) {
+      el.innerHTML = 'no scores yet &mdash; be the first!';
+      return;
+    }
+    var bars = '';
+    var maxCount = 1;
+    (s.levelBuckets || []).forEach(function (b) { if (b.count > maxCount) maxCount = b.count; });
+    (s.levelBuckets || []).slice(-6).forEach(function (b) {
+      var h = Math.max(6, Math.round(46 * b.count / maxCount));
+      bars += '<div class="hist-bar"><div class="hist-col" style="height:' + h + 'px"></div>' +
+              '<div class="hist-lbl">' + b.label + '</div></div>';
+    });
+    el.innerHTML =
+      '<span><b>' + fmt(s.players) + '</b> players</span>' +
+      '<span>best level <b>' + fmt(s.bestLevel) + '</b></span>' +
+      '<span><b>' + fmt(s.totalTaps) + '</b> taps logged</span>' +
+      '<span>avg top bpm <b>' + fmt(s.avgTopBpm, 1) + '</b></span>' +
+      (bars ? '<span class="hist">' + bars + '</span>' : '');
+  }
+
+  function renderLb(rows) {
+    var body = $('lbBody');
+    if (!body) return;
+    if (!rows || !rows.length) {
+      body.innerHTML = '<tr><td colspan="6" class="lb-muted">no scores yet &mdash; clear a level to appear here</td></tr>';
+      return;
+    }
+    var html = '';
+    rows.forEach(function (r) {
+      var me = myName && r.name && r.name.toLowerCase() === myName.toLowerCase();
+      html += '<tr' + (me ? ' class="lb-me"' : '') + '>' +
+        '<td class="lb-rank">' + r.rank + '</td>' +
+        '<td>' + esc(r.name) + '</td>' +
+        '<td class="lb-lvl">' + r.level + '</td>' +
+        '<td>' + fmt(r.bpm, 2) + '</td>' +
+        '<td>' + fmt(r.ur, 1) + '</td>' +
+        '<td>' + fmt(r.totalTaps) + '</td>' +
+        '</tr>';
+    });
+    body.innerHTML = html;
+  }
+
+  function loadAll() {
+    if (!API_BASE || API_BASE.indexOf('https://') !== 0) {
+      var b = $('lbBody');
+      if (b) b.innerHTML = '<tr><td colspan="6" class="lb-muted">leaderboard not configured yet</td></tr>';
+      return;
+    }
+    fetch(API_BASE + '/api/stats').then(function (r) { return r.json(); }).then(renderStats).catch(function () {});
+    fetch(API_BASE + '/api/leaderboard?limit=50').then(function (r) { return r.json(); }).then(function (d) {
+      renderLb(d.leaderboard);
+      renderNameChip();
+    }).catch(function () {
+      var b = $('lbBody');
+      if (b) b.innerHTML = '<tr><td colspan="6" class="lb-muted">leaderboard unreachable (offline?)</td></tr>';
+    });
+  }
+
+  $('btnRefreshLb').addEventListener('click', loadAll);
+  loadAll();
+})();
+</script></body>
+</html>

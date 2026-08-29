@@ -1,0 +1,6 @@
+﻿node_modules/
+workers/node_modules/
+workers/.wrangler/
+.wrangler/
+.openclaw/
+*.log
