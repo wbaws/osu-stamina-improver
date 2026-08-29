@@ -30,10 +30,10 @@ function staminaSpec(cyc, k) {
   let ur = 200 - 5 * k;
   if (cyc >= 1) ur -= 20 + 4 * (cyc - 1);
   ur = Math.max(95, ur);
-  let notes;
-  if (cyc === 0) notes = 64 + 16 * k;
-  else if (cyc === 1) notes = 1024 + 32 * k;
-  else notes = 1024 * Math.pow(2, cyc - 1) + 16 * Math.pow(2, cyc) * k;
+  // notes nerf (2026-08-30): +16 per stamina level from the 64-note base (L80),
+  // switching to +32 per stamina level from L130 — no marathon jumps
+  const step = 5 * cyc + k;
+  let notes = step <= 24 ? 64 + 16 * step : 448 + 32 * (step - 24);
   notes = Math.min(10000, Math.round(notes));
   return { bpm, ur, notes };
 }

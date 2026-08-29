@@ -19,7 +19,7 @@ async function waitFor(desc, fn, timeoutMs = 90000) {
 }
 
 /* simulate a real level 90 clear: 1024 notes at ~185 stream bpm */
-const notes = 1024;
+const notes = 144;
 const interval = 15000 / 185;
 const clicks = [];
 let t = 0;
@@ -86,7 +86,7 @@ const taps1 = await fetch(BASE + '/api/taps', {
 });
 const taps1j = await taps1.json().catch(() => ({}));
 check('taps accepted', taps1.status === 200 && taps1j.ok === true, JSON.stringify(taps1j));
-check('total taps accumulated (1024 + 300)', taps1j.totalTaps === notes + run2.clicks.length, JSON.stringify(taps1j));
+check('total taps accumulated (144 + 300)', taps1j.totalTaps === notes + run2.clicks.length, JSON.stringify(taps1j));
 
 const taps2 = await fetch(BASE + '/api/taps', {
   method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -112,7 +112,7 @@ const me = await waitFor('leaderboard entry', async () => {
   const row = (lb.leaderboard || []).find(e => e.name === RUN);
   return { ok: !!row && row.level === 90 && row.totalTaps === notes + run2.clicks.length, value: row };
 });
-check('leaderboard row: level 90, totalTaps 1324', me && me.level === 90 && me.totalTaps === notes + run2.clicks.length, JSON.stringify(me || null));
+check('leaderboard row: level 90, totalTaps 444', me && me.level === 90 && me.totalTaps === notes + run2.clicks.length, JSON.stringify(me || null));
 check('row has submitted timestamp', me && !!me.bestAt, JSON.stringify(me || null));
 
 const st = await waitFor('stats update', async () => {

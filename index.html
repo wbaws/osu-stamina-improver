@@ -337,8 +337,8 @@ function bgColorForLevel(L) {
  *   stamina bpm = 170 + 2 per stamina level + floor(cycle/2)  -> L90 = 180, L230 = 327
  *   stamina UR  = 200 - 5k within cycle, -20 for cycle 1, then -4 per cycle, floor 95
  *                 -> L90 = 180, L230 = 124
- *   notes       = 64+16k (cycle 0), 1024+32k (cycle 1 -> L90 = 1024),
- *                 then base doubles every cycle, capped at 10000
+ *   notes       = 64 + 16 per stamina level to L128 (448), then +32 per stamina
+ *                 level from L130 on, capped at 10000 (no marathon jumps)
  */
 function levelSpec(L) {
   L = Math.max(1, Math.floor(L));
@@ -367,10 +367,10 @@ function staminaSpec(cyc, k) {
   let ur = 200 - 5 * k;
   if (cyc >= 1) ur -= 20 + 4 * (cyc - 1);
   ur = Math.max(95, ur);
-  let notes;
-  if (cyc === 0) notes = 64 + 16 * k;
-  else if (cyc === 1) notes = 1024 + 32 * k;
-  else notes = 1024 * Math.pow(2, cyc - 1) + 16 * Math.pow(2, cyc) * k;
+  // notes nerf (2026-08-30): +16 per stamina level from the 64-note base (L80),
+  // switching to +32 per stamina level from L130 — no marathon jumps
+  const step = 5 * cyc + k;
+  let notes = step <= 24 ? 64 + 16 * step : 448 + 32 * (step - 24);
   notes = Math.min(10000, Math.round(notes));
   return { bpm, ur, notes, burst: false };
 }
