@@ -59,7 +59,9 @@ function specForLevel(L) {
   const pos = idx % 10;
   if (pos % 2 === 1) {
     const base = staminaSpec(cyc, (pos - 1) / 2);
-    return { bpm: base.bpm * (330 / 270), ur: base.ur, notes: 8, burst: true };
+      // burst nerf (2026-08-30): 12 notes from L110 on, 8 before
+  const bnotes = L >= 110 ? 12 : 8;
+  return { bpm: base.bpm * (330 / 270), ur: base.ur, notes: bnotes, burst: true };
   }
   return staminaSpec(cyc, pos / 2);
 }

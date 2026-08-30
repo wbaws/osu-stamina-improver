@@ -48,6 +48,8 @@ console.log('# game: level spec anchor points (from design comments)');
   check('L230 = 275 bpm (stretched)', l230.bpm === 275, JSON.stringify(l230));
   const l81 = levelSpec(81);
   check('L81 is a burst: 8 notes at 170*330/270', l81.burst && l81.notes === 8 && close(l81.bpm, 170 * 330 / 270), JSON.stringify(l81));
+  const l111 = levelSpec(111);
+  check('L111 burst is 12 notes (post-nerf)', l111.burst && l111.notes === 12, JSON.stringify(l111));
 }
 
 console.log('# game: formulas stay sane across the whole range');

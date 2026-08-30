@@ -148,6 +148,16 @@
   .lb-table .lb-me{ background:rgba(255,255,0,.14); }
   .lb-muted{ opacity:.65; font-size:13px; }
   .lb-table .lb-when{ opacity:.75; white-space:nowrap; font-size:13px; }
+  /* leaderboard gradient tiers */
+  .g-lvl-100{ background:linear-gradient(90deg,#000,#ff9ecb); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
+  .g-lvl-150{ background:linear-gradient(90deg,#00e5ff,#ff00ff); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
+  .g-lvl-200{ background:linear-gradient(90deg,#ffd700,#7cff00); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
+  .g-lvl-250{ background:linear-gradient(90deg,#ff4d00,#ffe600); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
+  .g-lvl-300{ background:linear-gradient(90deg,#00ffd5,#4d00ff); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
+  .g-lvl-350{ background:linear-gradient(90deg,#ff0066,#9ef01a0); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
+  .g-bpm-hot{ background:linear-gradient(90deg,#6d6d6d,#800000); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
+  .g-ur-sweet{ background:linear-gradient(90deg,#ff2d55,#8a2be2); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
+  .g-fresh{ background:linear-gradient(90deg,#ffe97a,#1a1a1a); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:600; }
   .hist{ display:inline-flex; align-items:flex-end; gap:7px; }
   .hist-bar{ display:flex; flex-direction:column; align-items:center; gap:2px; }
   .hist-col{ width:9px; border-radius:2px 2px 0 0; background:currentColor; opacity:.55; }
@@ -357,7 +367,9 @@ function levelSpec(L) {
   if (pos % 2 === 1) {
     const j = (pos - 1) / 2;
     const base = staminaSpec(cyc, j);
-    return { bpm: base.bpm * (330 / 270), ur: base.ur, notes: 8, burst: true };
+      // burst nerf (2026-08-30): 12 notes from L110 on, 8 before
+  const bnotes = L >= 110 ? 12 : 8;
+  return { bpm: base.bpm * (330 / 270), ur: base.ur, notes: bnotes, burst: true };
   }
   return staminaSpec(cyc, pos / 2);
 }
@@ -1292,6 +1304,21 @@ if (typeof module !== 'undefined' && module.exports) {
       (bars ? '<span class="hist">' + bars + '</span>' : '');
   }
 
+  function tierClass(L) {
+    if (L >= 350) return 'g-lvl-350';
+    if (L >= 300) return 'g-lvl-300';
+    if (L >= 250) return 'g-lvl-250';
+    if (L >= 200) return 'g-lvl-200';
+    if (L >= 150) return 'g-lvl-150';
+    if (L >= 100) return 'g-lvl-100';
+    return '';
+  }
+  function freshClass(ts) {
+    const t = new Date(ts).getTime();
+    if (isNaN(t)) return '';
+    const ageH = (Date.now() - t) / 3600000;
+    return ageH < 1 ? 'g-fresh' : '';
+  }
   function renderLb(rows) {
     var body = $('lbBody');
     if (!body) return;
@@ -1305,11 +1332,11 @@ if (typeof module !== 'undefined' && module.exports) {
       html += '<tr' + (me ? ' class="lb-me"' : '') + '>' +
         '<td class="lb-rank">' + r.rank + '</td>' +
         '<td>' + esc(r.name) + '</td>' +
-        '<td class="lb-lvl">' + r.level + '</td>' +
-        '<td>' + fmt(r.bpm, 2) + '</td>' +
-        '<td>' + fmt(r.ur, 1) + '</td>' +
+        '<td class="lb-lvl ' + tierClass(r.level) + '">' + r.level + '</td>' +
+        '<td class="' + (r.bpm > 530 ? 'g-bpm-hot' : '') + '">' + fmt(r.bpm, 2) + '</td>' +
+        '<td class="' + (r.ur < 100 && r.ur > 0 ? 'g-ur-sweet' : '') + '">' + fmt(r.ur, 1) + '</td>' +
         '<td>' + fmt(r.totalTaps) + '</td>' +
-        '<td class="lb-when" title="' + esc(new Date(r.bestAt || r.lastSeen || Date.now()).toLocaleString()) + '">' + ago(r.bestAt || r.lastSeen) + '</td>' +
+        '<td class="lb-when ' + freshClass(r.bestAt || r.lastSeen) + '" title="' + esc(new Date(r.bestAt || r.lastSeen || Date.now()).toLocaleString()) + '">' + ago(r.bestAt || r.lastSeen) + '</td>' +
         '</tr>';
     });
     body.innerHTML = html;
