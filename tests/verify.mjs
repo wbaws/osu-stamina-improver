@@ -42,8 +42,10 @@ console.log('# game: level spec anchor points (from design comments)');
   const l79 = levelSpec(79), l80 = levelSpec(80), l90 = levelSpec(90), l230 = levelSpec(230);
   check('L79 = 169 bpm / 202 UR / 63 notes (ramp end, t=78/79)', l79.bpm === 169 && l79.ur === 202 && l79.notes === 63, JSON.stringify(l79));
   check('L80 = 170 bpm / 200 UR / 64 notes (smooth handoff)', l80.bpm === 170 && l80.ur === 200 && l80.notes === 64, JSON.stringify(l80));
-  check('L90 = 180 bpm / 180 UR / 144 notes (post-nerf)', l90.bpm === 180 && l90.ur === 180 && l90.notes === 144, JSON.stringify(l90));
-  check('L230 = 327 bpm', l230.bpm === 327, JSON.stringify(l230));
+  check('L90 = 177 bpm / 185 UR / 144 notes (nerf+stretch)', l90.bpm === 177 && l90.ur === 185 && l90.notes === 144, JSON.stringify(l90));
+  const l200 = levelSpec(200);
+  check('L200 = 254 bpm / 152 UR (old L160 difficulty)', l200.bpm === 254 && l200.ur === 152, JSON.stringify(l200));
+  check('L230 = 275 bpm (stretched)', l230.bpm === 275, JSON.stringify(l230));
   const l81 = levelSpec(81);
   check('L81 is a burst: 8 notes at 170*330/270', l81.burst && l81.notes === 8 && close(l81.bpm, 170 * 330 / 270), JSON.stringify(l81));
 }

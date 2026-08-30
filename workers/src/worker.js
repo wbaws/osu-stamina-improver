@@ -26,13 +26,18 @@ const keyFor = name => name.toLowerCase().replace(/[^a-z0-9_ -]/g, '');
 
 /* ---------------- level formula (mirror of index.html) ---------------- */
 function staminaSpec(cyc, k) {
-  const bpm = 170 + 2 * (5 * cyc + k) + Math.floor(cyc / 2);
-  let ur = 200 - 5 * k;
-  if (cyc >= 1) ur -= 20 + 4 * (cyc - 1);
+  // stretch (2026-08-30): the old 1-160 difficulty now spans 1-200;
+  // bpm/UR grow at 2/3 speed via a virtual stamina index, notes stay real
+  const step = 5 * cyc + k;
+  const vsf = step * 2 / 3;
+  const vk = Math.floor(vsf + 1e-9);
+  const bpm = Math.round(170 + 2 * vsf + Math.floor(vsf / 10));
+  let ur = 200 - 5 * (vk % 5);
+  const vcyc = Math.floor(vk / 5);
+  if (vcyc >= 1) ur -= 20 + 4 * (vcyc - 1);
   ur = Math.max(95, ur);
   // notes nerf (2026-08-30): +16 per stamina level from the 64-note base (L80),
   // switching to +32 per stamina level from L130 — no marathon jumps
-  const step = 5 * cyc + k;
   let notes = step <= 24 ? 64 + 16 * step : 448 + 32 * (step - 24);
   notes = Math.min(10000, Math.round(notes));
   return { bpm, ur, notes };

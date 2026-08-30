@@ -363,13 +363,18 @@ function levelSpec(L) {
 }
 
 function staminaSpec(cyc, k) {
-  const bpm = 170 + 2 * (5 * cyc + k) + Math.floor(cyc / 2);
-  let ur = 200 - 5 * k;
-  if (cyc >= 1) ur -= 20 + 4 * (cyc - 1);
+  // stretch (2026-08-30): the old 1-160 difficulty now spans 1-200;
+  // bpm/UR grow at 2/3 speed via a virtual stamina index, notes stay real
+  const step = 5 * cyc + k;
+  const vsf = step * 2 / 3;
+  const vk = Math.floor(vsf + 1e-9);
+  const bpm = Math.round(170 + 2 * vsf + Math.floor(vsf / 10));
+  let ur = 200 - 5 * (vk % 5);
+  const vcyc = Math.floor(vk / 5);
+  if (vcyc >= 1) ur -= 20 + 4 * (vcyc - 1);
   ur = Math.max(95, ur);
   // notes nerf (2026-08-30): +16 per stamina level from the 64-note base (L80),
   // switching to +32 per stamina level from L130 — no marathon jumps
-  const step = 5 * cyc + k;
   let notes = step <= 24 ? 64 + 16 * step : 448 + 32 * (step - 24);
   notes = Math.min(10000, Math.round(notes));
   return { bpm, ur, notes, burst: false };
@@ -727,7 +732,7 @@ function finishRun() {
     $('advice').style.display = 'none';
     setBtn('btnPrimary', true);
     setBtn('btnMenu', true);
-    const secs = breakSeconds(S.spec.notes, r.bpm);
+    const secs = Math.min(20, Math.max(5, breakSeconds(S.spec.notes, r.bpm))); // break is back: always shown, inline + skippable
     if (secs > 3) {
       // break starts the moment the last note is clicked
       $('btnPrimary').textContent = 'skip break →';
@@ -768,7 +773,7 @@ function showBreak(userBpm) {
   S.state = 'break';
   document.body.classList.remove('in-run');
   $('breakMsg').textContent = BREAK_MSGS[Math.floor(Math.random() * BREAK_MSGS.length)];
-  const secs = breakSeconds(S.spec.notes, userBpm);
+  const secs = Math.min(20, Math.max(5, breakSeconds(S.spec.notes, userBpm)));
   const end = performance.now() + secs * 1000;
   $('breakTimer').textContent = fmtMMSS(secs);
   $('breakLine').style.display = '';
@@ -847,11 +852,12 @@ function showTestResult() {
   const avgBpm = b / S.benchResults.length;
   const avgUr = u / S.benchResults.length;
 
+  const effBpm = avgBpm / 1.22;   // placement nerf: benchmark bursts inflate the avg
   let beaten = 0;
   for (let L = 1; L <= 5000; L++) {
     const sp = levelSpec(L);
-    if (!sp.burst && sp.bpm > avgBpm) break;
-    if (avgBpm >= sp.bpm && avgUr < sp.ur) beaten = L;
+    if (!sp.burst && sp.bpm > effBpm) break;
+    if (effBpm >= sp.bpm && avgUr < sp.ur) beaten = L;
   }
   const next = beaten + 1;
   store.level = next;

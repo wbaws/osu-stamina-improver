@@ -14,7 +14,7 @@ No install, no account, works in any modern browser. You can also download this 
 ## How it works
 
 - **Levels 1-79**: lenient ramp - 100 bpm / 350 UR / 6 notes up to 170 bpm / 200 UR / 64 notes.
-- **Levels 80+**: 10-level cycles. Even positions are **stamina** levels (bpm climbs 2 per level, note counts grow to thousands); odd positions are **BURST** levels (8 notes at ~1.22x the surrounding bpm).
+- **Levels 80+**: 10-level cycles. Even positions are **stamina** levels (bpm/UR climb at 2/3 the original speed (the old 1-160 difficulty spans 1-200), note counts grow to thousands); odd positions are **BURST** levels (8 notes at ~1.22x the surrounding bpm).
 - A level is cleared when your **stream speed** (osu! 1/4-note formula) reaches the target **and** your **unstable rate** (10 x stdev of inter-click intervals) stays under the cap.
 - **Test Me** runs 3 benchmarks at your own pace and places you at the right level.
 - Custom keys (default Z/X), optional metronome with real osu! hit sounds, optional mouse/touch tapping, breaks between levels.
