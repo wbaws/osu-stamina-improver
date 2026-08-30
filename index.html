@@ -156,8 +156,28 @@
   .g-lvl-300{ background:linear-gradient(90deg,#00ffd5,#4d00ff); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
   .g-lvl-350{ background:linear-gradient(90deg,#ff0066,#9ef01a0); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
   .g-bpm-hot{ background:linear-gradient(90deg,#6d6d6d,#800000); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
-  .g-ur-sweet{ background:linear-gradient(90deg,#ff2d55,#8a2be2); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
+  .g-ur-sweet{ background:linear-gradient(90deg,#39ff14,#2e8b57); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
   .g-fresh{ background:linear-gradient(90deg,#ffe97a,#1a1a1a); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:600; }
+  .g-bpm-150{ background:linear-gradient(90deg,#5a8dd6,#c3d7ff); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:600; }
+  .g-bpm-200{ background:linear-gradient(90deg,#2196f3,#8be9fd); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:600; }
+  .g-bpm-250{ background:linear-gradient(90deg,#00b894,#c6ff00); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:600; }
+  .g-bpm-300{ background:linear-gradient(90deg,#8a2be2,#ff2d92); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:600; }
+  .g-bpm-350{ background:linear-gradient(90deg,#ff7b00,#ff00cc); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
+  .g-bpm-400{ background:linear-gradient(90deg,#0066ff,#00ff9d); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
+  .g-bpm-450{ background:linear-gradient(90deg,#ffd700,#ff3d00); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
+  .g-bpm-500{ background:linear-gradient(90deg,#ff00cc,#00ffcc,#ffee00); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
+  .g-tap-500{ background:linear-gradient(90deg,#7f9db9,#dbe7f6); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:600; }
+  .g-tap-1k{ background:linear-gradient(90deg,#009688,#7fffd4); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:600; }
+  .g-tap-2k{ background:linear-gradient(90deg,#3b82f6,#a78bfa); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:600; }
+  .g-tap-5k{ background:linear-gradient(90deg,#4f46e5,#ec4899); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
+  .g-tap-9k{ background:linear-gradient(90deg,#7c3aed,#fb923c); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
+  .g-tap-15k{ background:linear-gradient(90deg,#dc2626,#fbbf24); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
+  .g-tap-20k{ background:linear-gradient(90deg,#059669,#22d3ee); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
+  .g-tap-30k{ background:linear-gradient(90deg,#d946ef,#3b82f6); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
+  .g-tap-40k{ background:linear-gradient(90deg,#f97316,#b91c1c,#fbbf24); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
+  .g-tap-67k{ background:linear-gradient(90deg,#ff2d92,#00e5ff); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
+  .g-tap-100k{ background:linear-gradient(90deg,#22c55e,#06b6d4,#8b5cf6); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800; }
+  .g-tap-200k{ background:linear-gradient(90deg,#ff004d,#ffee00,#00ff9d,#00ccff,#ff00cc); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800; }
   .hist{ display:inline-flex; align-items:flex-end; gap:7px; }
   .hist-bar{ display:flex; flex-direction:column; align-items:center; gap:2px; }
   .hist-col{ width:9px; border-radius:2px 2px 0 0; background:currentColor; opacity:.55; }
@@ -744,11 +764,11 @@ function finishRun() {
     $('advice').style.display = 'none';
     setBtn('btnPrimary', true);
     setBtn('btnMenu', true);
-    const secs = Math.min(20, Math.max(5, breakSeconds(S.spec.notes, r.bpm))); // break is back: always shown, inline + skippable
-    if (secs > 3) {
+    const secs = r.elapsed / 6000;   // break = 1/6 of how long the notes actually took
+    if (secs >= 3) {
       // break starts the moment the last note is clicked
       $('btnPrimary').textContent = 'skip break →';
-      showBreak(r.bpm);
+      showBreak(secs);
     } else {
       // short break (<=3s): no break shown, just move on
       $('btnPrimary').textContent = 'next level →';
@@ -779,13 +799,12 @@ function primaryAction() {
 }
 
 /* ---------------- break ---------------- */
-function showBreak(userBpm) {
+function showBreak(secs) {
   clearTimers();
   metroStop();
   S.state = 'break';
   document.body.classList.remove('in-run');
   $('breakMsg').textContent = BREAK_MSGS[Math.floor(Math.random() * BREAK_MSGS.length)];
-  const secs = Math.min(20, Math.max(5, breakSeconds(S.spec.notes, userBpm)));
   const end = performance.now() + secs * 1000;
   $('breakTimer').textContent = fmtMMSS(secs);
   $('breakLine').style.display = '';
@@ -1319,6 +1338,42 @@ if (typeof module !== 'undefined' && module.exports) {
     const ageH = (Date.now() - t) / 3600000;
     return ageH < 1 ? 'g-fresh' : '';
   }
+  function bpmClass(b) {
+    if (!(b > 0)) return '';
+    if (b > 530) return 'g-bpm-hot';
+    if (b >= 500) return 'g-bpm-500';
+    if (b >= 450) return 'g-bpm-450';
+    if (b >= 400) return 'g-bpm-400';
+    if (b >= 350) return 'g-bpm-350';
+    if (b >= 300) return 'g-bpm-300';
+    if (b >= 250) return 'g-bpm-250';
+    if (b >= 200) return 'g-bpm-200';
+    if (b >= 150) return 'g-bpm-150';
+    return '';
+  }
+  function tapsClass(t) {
+    if (!(t > 0)) return '';
+    if (t >= 200000) return 'g-tap-200k';
+    if (t >= 100000) return 'g-tap-100k';
+    if (t >= 67000) return 'g-tap-67k';
+    if (t >= 40000) return 'g-tap-40k';
+    if (t >= 30000) return 'g-tap-30k';
+    if (t >= 20000) return 'g-tap-20k';
+    if (t >= 15000) return 'g-tap-15k';
+    if (t >= 9000) return 'g-tap-9k';
+    if (t >= 5000) return 'g-tap-5k';
+    if (t >= 2000) return 'g-tap-2k';
+    if (t >= 1000) return 'g-tap-1k';
+    if (t >= 500) return 'g-tap-500';
+    return '';
+  }
+  function rankEmoji(r) {
+    if (r.rank === 1) return '\ud83d� ';
+    if (r.rank === 2) return '\ud83e� ';
+    if (r.rank === 3) return '\ud83e� ';
+    if (r.rank <= 10) return '\ud83c� ';
+    return '';
+  }
   function renderLb(rows) {
     var body = $('lbBody');
     if (!body) return;
@@ -1330,12 +1385,12 @@ if (typeof module !== 'undefined' && module.exports) {
     rows.forEach(function (r) {
       var me = myName && r.name && r.name.toLowerCase() === myName.toLowerCase();
       html += '<tr' + (me ? ' class="lb-me"' : '') + '>' +
-        '<td class="lb-rank">' + r.rank + '</td>' +
+        '<td class="lb-rank">' + rankEmoji(r) + r.rank + '</td>' +
         '<td>' + esc(r.name) + '</td>' +
         '<td class="lb-lvl ' + tierClass(r.level) + '">' + r.level + '</td>' +
-        '<td class="' + (r.bpm > 530 ? 'g-bpm-hot' : '') + '">' + fmt(r.bpm, 2) + '</td>' +
+        '<td class="' + bpmClass(r.bpm) + '">' + fmt(r.bpm, 2) + '</td>' +
         '<td class="' + (r.ur < 100 && r.ur > 0 ? 'g-ur-sweet' : '') + '">' + fmt(r.ur, 1) + '</td>' +
-        '<td>' + fmt(r.totalTaps) + '</td>' +
+        '<td class="' + tapsClass(r.totalTaps) + '">' + fmt(r.totalTaps) + '</td>' +
         '<td class="lb-when ' + freshClass(r.bestAt || r.lastSeen) + '" title="' + esc(new Date(r.bestAt || r.lastSeen || Date.now()).toLocaleString()) + '">' + ago(r.bestAt || r.lastSeen) + '</td>' +
         '</tr>';
     });
