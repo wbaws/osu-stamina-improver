@@ -1387,10 +1387,13 @@ if (typeof module !== 'undefined' && module.exports) {
     return "";
   }
   function deltaHtml(r, prevRanks) {
+    var RC_TTL = 7 * 24 * 3600000;   // rank changes stay visible for a week
     if (!prevRanks || r.rank > 10) return "";
-    var prev = prevRanks[r.name];
-    if (prev === undefined || prev === r.rank) return "";
-    var d = prev - r.rank;
+    var e = prevRanks[r.name.toLowerCase()];
+    if (!e) return "";
+    if (Date.now() - e.at > RC_TTL) return "";   // expired: change is old news
+    var d = e.rank - r.rank;   // positive = climbed since the change happened
+    if (d === 0) return "";
     var UP = String.fromCharCode(0x25B2), DN = String.fromCharCode(0x25BC);
     if (d > 0) return '<span class="rc-up">' + UP + d + '</span> ';
     return '<span class="rc-down">' + DN + (-d) + '</span> ';
@@ -1419,8 +1422,13 @@ if (typeof module !== 'undefined' && module.exports) {
     });
     body.innerHTML = html;
     try {
+      var oldCache = null;
+      try { oldCache = JSON.parse(localStorage.getItem('osi_rankcache') || 'null'); } catch (e2) { oldCache = null; }
       var cur = {};
-      (rows || []).slice(0, 10).forEach(function (r) { cur[r.name] = r.rank; });
+      (rows || []).slice(0, 10).forEach(function (r) {
+        var prevE = oldCache && (oldCache[r.name.toLowerCase()] || oldCache[r.name]);
+        cur[r.name.toLowerCase()] = { rank: r.rank, at: prevE && prevE.at ? prevE.at : Date.now() };
+      });
       localStorage.setItem('osi_rankcache', JSON.stringify(cur));
     } catch (e) {}
   }
@@ -1440,6 +1448,16 @@ if (typeof module !== 'undefined' && module.exports) {
     });
   }
 
+  /* seeded rank changes (reported by owner): Aaannneeeesssss- +2, baws -1, sami dz -1 */
+  try {
+    var rc = JSON.parse(localStorage.getItem('osi_rankcache') || 'null');
+    var t = Date.now() - 3600000;   // stamped an hour ago, expires in 7 days
+    if (!rc) rc = {};
+    if (!rc['aaannneeeesssss-']) rc['aaannneeeesssss-'] = { rank: 9, at: t };
+    if (!rc['baws']) rc['baws'] = { rank: 8, at: t };
+    if (!rc['sami dz']) rc['sami dz'] = { rank: 9, at: t };
+    localStorage.setItem('osi_rankcache', JSON.stringify(rc));
+  } catch (e3) {}
   $('btnRefreshLb').addEventListener('click', loadAll);
   renderNameChip();
   flushOutbox();
