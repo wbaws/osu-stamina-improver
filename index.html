@@ -1448,15 +1448,19 @@ if (typeof module !== 'undefined' && module.exports) {
     });
   }
 
-  /* seeded rank changes (reported by owner): Aaannneeeesssss- +2, baws -1, sami dz -1 */
+  /* seeded rank changes v2 (owner correction): hexishu +2, baws -1, sami dz -1; Aaannneeeesssss- did not move */
   try {
-    var rc = JSON.parse(localStorage.getItem('osi_rankcache') || 'null');
-    var t = Date.now() - 3600000;   // stamped an hour ago, expires in 7 days
-    if (!rc) rc = {};
-    if (!rc['aaannneeeesssss-']) rc['aaannneeeesssss-'] = { rank: 9, at: t };
-    if (!rc['baws']) rc['baws'] = { rank: 8, at: t };
-    if (!rc['sami dz']) rc['sami dz'] = { rank: 9, at: t };
-    localStorage.setItem('osi_rankcache', JSON.stringify(rc));
+    if (!localStorage.getItem('osi_rankseed_v2')) {
+      var rc = JSON.parse(localStorage.getItem('osi_rankcache') || 'null');
+      var t = Date.now() - 3600000;   // stamped an hour ago, expires in 7 days
+      if (!rc) rc = {};
+      delete rc['aaannneeeesssss-'];                    // correction: no rank change
+      rc['hexishu'] = { rank: 10, at: t };             // 10 -> 8 (+2)
+      rc['baws'] = { rank: 8, at: t };                 // 8 -> 9 (-1)
+      rc['sami dz'] = { rank: 9, at: t };              // 9 -> 10 (-1)
+      localStorage.setItem('osi_rankcache', JSON.stringify(rc));
+      localStorage.setItem('osi_rankseed_v2', '1');
+    }
   } catch (e3) {}
   $('btnRefreshLb').addEventListener('click', loadAll);
   renderNameChip();
