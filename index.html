@@ -159,6 +159,7 @@
   .g-ur-sweet{ background:linear-gradient(90deg,#39ff14,#2e8b57); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
   .g-ur-cold{ background:linear-gradient(90deg,#39ff14,#0a0a0a,#b3e5fc); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
   .rc-up{ color:#2bff7c; font-weight:800; font-size:11px; margin-right:3px; }
+  .lb-noclear{ opacity:.5; }
   .rc-down{ color:#ff5f5f; font-weight:800; font-size:11px; margin-right:3px; }
   .g-fresh{ background:linear-gradient(90deg,#ffe97a,#1a1a1a); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:600; }
   .g-bpm-150{ background:linear-gradient(90deg,#5a8dd6,#c3d7ff); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:600; }
@@ -1409,7 +1410,7 @@ if (typeof module !== 'undefined' && module.exports) {
       html += '<tr' + (me ? ' class="lb-me"' : '') + '>' +
         '<td class="lb-rank">' + deltaHtml(r, prevRanks) + rankEmoji(r) + r.rank + '</td>' +
         '<td>' + esc(r.name) + '</td>' +
-        '<td class="lb-lvl ' + tierClass(r.level) + '">' + r.level + '</td>' +
+        '<td class="lb-lvl ' + tierClass(r.level) + '">' + (r.level > 0 ? r.level : '<span class="lb-noclear" title="no level cleared yet - the placement button places you, but only clears you make count">-</span>') + '</td>' +
         '<td class="' + bpmClass(r.bpm) + '">' + fmt(r.bpm, 2) + '</td>' +
         '<td class="' + urClass(r.ur) + '">' + fmt(r.ur, 1) + '</td>' +
         '<td class="' + tapsClass(r.totalTaps) + '">' + fmt(r.totalTaps) + '</td>' +
