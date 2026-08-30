@@ -1467,6 +1467,10 @@ if (typeof module !== 'undefined' && module.exports) {
       rc['baws'] = { from: 8, to: 9, at: t };          // -1
       rc['sami dz'] = { from: 9, to: 10, at: t };      // -1
       localStorage.setItem('osi_rankcache', JSON.stringify(rc));
+      for (var k3 in rc) {
+        var e3 = rc[k3];
+        if (e3 && e3.rank !== undefined) rc[k3] = { from: e3.rank, to: e3.rank, at: e3.at };   // legacy shape: no known change
+      }
       localStorage.setItem('osi_rankseed_v3', '1');
     }
   } catch (e3) {}
