@@ -1501,7 +1501,7 @@ if (typeof module !== 'undefined' && module.exports) {
     try {
       var wrap = body.closest('.lb-wrap');
       if (wrap) {
-        wrap.querySelectorAll('.rc-chip").forEach(function (el) { el.remove(); });
+        wrap.querySelectorAll('.rc-chip').forEach(function (el) { el.remove(); });
         var wrapRect = wrap.getBoundingClientRect();
         rows.slice(0, 10).forEach(function (r, rowIdx) {
           if (!r.rc) return;
