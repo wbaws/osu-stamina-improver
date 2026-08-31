@@ -50,6 +50,12 @@ node tests/verify.mjs      # game math + worker formula cross-check (17 checks)
 OSI_API_BASE=https://osu-stamina-improver.pages.dev node tests/e2e.mjs   # live API end-to-end (6 checks)
 ```
 
+## Rebirth system
+
+Clearing level 50+ unlocks an opt-in rebirth (each next one requires +10 more levels). Rebirthing resets level and best score to zero but keeps total taps and plays.
+
+Perks: the placement benchmark gets a x1.03^rebirths bpm bonus, and effective notes shrink 3% per rebirth on every level, with floors (stamina levels keep at least +1 note per design step; bursts never go below 5 notes). The server stores the rebirth count and validates every submission against the effective note count, so the perk cannot be spoofed. The leaderboard shows rebirths as gradient roman numerals.
+
 ## Credits & license
 
 - Based on osu! Stream Speed Benchmark by **arctic** (MIT)

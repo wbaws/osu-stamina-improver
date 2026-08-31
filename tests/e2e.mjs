@@ -59,6 +59,12 @@ const forged = await fetch(BASE + '/api/submit', {
 });
 check('forged submission rejected (422)', forged.status === 422, 'status ' + forged.status);
 
+const rbMismatch = await fetch(BASE + '/api/submit', {
+  method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ name: RUN, level: 90, bpm, ur, notes: 144, elapsedMs: elapsed, rebirths: 3, proof: { clicks } })
+});
+check('rebirth count mismatch rejected (422)', rbMismatch.status === 422, 'status ' + rbMismatch.status);
+
 const mismatch = await fetch(BASE + '/api/submit', {
   method: 'POST', headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ name: RUN, level: 90, bpm: 999, ur: ur, notes: notes, elapsedMs: elapsed, proof: { clicks } })
