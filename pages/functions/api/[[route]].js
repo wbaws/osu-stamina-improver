@@ -169,10 +169,18 @@ async function handleFetch(request, env, ctx) {
 
     if (url.pathname === '/api/leaderboard' && request.method === 'GET') {
       const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') || '50', 10) || 50));
-      const rs = await db.prepare(SELECT_ALL + ' LIMIT ?1').bind(limit).all();
+      const rs = await db.prepare(
+          'SELECT p.*, c.from_rank AS rc_from, c.to_rank AS rc_to, c.at AS rc_at ' +
+          'FROM players p LEFT JOIN rank_changes c ON c.name = p.name ' +
+          'ORDER BY p.level DESC, p.bpm DESC LIMIT ?1'
+        ).bind(limit).all();
       const ranked = (rs.results || []).map((r, i) => {
         const e = rowToEntry(r);
         e.rank = i + 1;
+        if (r.rc_at && r.rc_from !== null && r.rc_from !== undefined && r.rc_from !== r.rc_to) {
+          const age = Date.now() - Date.parse(r.rc_at);
+          if (age >= 0 && age <= 7 * 24 * 3600000) e.rc = { from: r.rc_from, to: r.rc_to, at: r.rc_at };
+        }
         return e;
       });
       return json({ leaderboard: ranked, generatedAt: nowISO() });
@@ -243,6 +251,29 @@ async function handleFetch(request, env, ctx) {
         bestAt: better ? now : (existing ? existing.best_at : now),
         lastHash: hash,
       });
+      if (better) {
+        try {
+          const snap = await db.prepare('SELECT pos, name FROM top10_snapshot ORDER BY pos').all();
+          const prev = {};
+          (snap.results || []).forEach(sr => { prev[sr.name] = sr.pos; });
+          const nowTop = await db.prepare('SELECT name FROM players ORDER BY level DESC, bpm DESC LIMIT 10').all();
+          const cur = {};
+          (nowTop.results || []).forEach((tr, i) => { cur[tr.name] = i + 1; });
+          if ((snap.results || []).length) {   // first-ever run only builds the snapshot
+            for (const cname in cur) {
+              const oldPos = prev[cname];
+              if (oldPos !== undefined && oldPos !== cur[cname]) {
+                await db.prepare('INSERT INTO rank_changes (name, from_rank, to_rank, at) VALUES (?1, ?2, ?3, ?4) ON CONFLICT(name) DO UPDATE SET from_rank=?2, to_rank=?3, at=?4')
+                  .bind(cname, oldPos, cur[cname], nowISO()).run();   // last change per player, 7-day TTL enforced on read
+              }
+            }
+          }
+          await db.prepare('DELETE FROM top10_snapshot').run();
+          for (const cname in cur) {
+            await db.prepare('INSERT INTO top10_snapshot (pos, name) VALUES (?1, ?2)').bind(cur[cname], cname).run();
+          }
+        } catch (eTrack) { /* rank tracking must never fail a submit */ }
+      }
       return json({ ok: true, level: better ? level : prev.level });
     }
 

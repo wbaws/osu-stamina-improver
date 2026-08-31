@@ -1387,13 +1387,9 @@ if (typeof module !== 'undefined' && module.exports) {
     if (u < 100) return "g-ur-sweet";
     return "";
   }
-  function deltaHtml(r, prevRanks) {
-    var RC_TTL = 7 * 24 * 3600000;   // rank changes stay visible for a week
-    if (!prevRanks || r.rank > 10) return "";
-    var e = prevRanks[r.name.toLowerCase()];
-    if (!e) return "";
-    if (Date.now() - e.at > RC_TTL) return "";   // expired: change is old news
-    var d = e.from - e.to;   // size of the last change
+  function deltaHtml(r) {
+    if (r.rank > 10 || !r.rc) return "";   // server-computed last change, top 10 only
+    var d = r.rc.from - r.rc.to;
     if (!d) return "";
     var UP = String.fromCharCode(0x25B2), DN = String.fromCharCode(0x25BC);
     if (d > 0) return '<span class="rc-up">' + UP + d + '</span> ';
@@ -1406,13 +1402,11 @@ if (typeof module !== 'undefined' && module.exports) {
       body.innerHTML = '<tr><td colspan="7" class="lb-muted">no scores yet &mdash; clear a level to appear here</td></tr>';
       return;
     }
-    var prevRanks = null;
-    try { prevRanks = JSON.parse(localStorage.getItem('osi_rankcache') || 'null'); } catch (e) { prevRanks = null; }
     var html = '';
     rows.forEach(function (r) {
       var me = myName && r.name && r.name.toLowerCase() === myName.toLowerCase();
       html += '<tr' + (me ? ' class="lb-me"' : '') + '>' +
-        '<td class="lb-rank">' + deltaHtml(r, prevRanks) + rankEmoji(r) + r.rank + '</td>' +
+        '<td class="lb-rank">' + deltaHtml(r) + rankEmoji(r) + r.rank + '</td>' +
         '<td>' + esc(r.name) + '</td>' +
         '<td class="lb-lvl ' + tierClass(r.level) + '">' + (r.level > 0 ? r.level : '<span class="lb-noclear" title="no level cleared yet - the placement button places you, but only clears you make count">-</span>') + '</td>' +
         '<td class="' + bpmClass(r.bpm) + '">' + fmt(r.bpm, 2) + '</td>' +
@@ -1422,23 +1416,7 @@ if (typeof module !== 'undefined' && module.exports) {
         '</tr>';
     });
     body.innerHTML = html;
-    try {
-      var oldCache = null;
-      try { oldCache = JSON.parse(localStorage.getItem('osi_rankcache') || 'null'); } catch (e2) { oldCache = null; }
-      var cur = {};
-      (rows || []).slice(0, 10).forEach(function (r) {
-        var k = r.name.toLowerCase();
-        var prevE = oldCache && (oldCache[k] || oldCache[r.name]);
-        if (prevE && prevE.to === r.rank) { cur[k] = prevE; return; }   // no new movement: keep the recorded change
-        cur[k] = { from: prevE ? (prevE.to || prevE.rank) : r.rank, to: r.rank, at: Date.now() };   // movement: record the new change
-      });
-      if (oldCache) {
-        for (var k2 in oldCache) {
-          if (!cur[k2] && (Date.now() - oldCache[k2].at) <= RC_TTL && oldCache[k2].from !== oldCache[k2].to) cur[k2] = oldCache[k2];   // keep recent changes for players who left the visible top 10
-        }
-      }
-      localStorage.setItem('osi_rankcache', JSON.stringify(cur));
-    } catch (e) {}
+
   }
 
   function loadAll() {
@@ -1456,24 +1434,6 @@ if (typeof module !== 'undefined' && module.exports) {
     });
   }
 
-  /* seeded rank changes v2 (owner correction): hexishu +2, baws -1, sami dz -1; Aaannneeeesssss- did not move */
-  try {
-    if (!localStorage.getItem('osi_rankseed_v3')) {
-      var rc = JSON.parse(localStorage.getItem('osi_rankcache') || 'null');
-      var t = Date.now() - 3600000;   // stamped an hour ago, expires in 7 days
-      if (!rc) rc = {};
-      delete rc['aaannneeeesssss-'];                    // did not move
-      rc['hexishu'] = { from: 10, to: 8, at: t };      // +2
-      rc['baws'] = { from: 8, to: 9, at: t };          // -1
-      rc['sami dz'] = { from: 9, to: 10, at: t };      // -1
-      localStorage.setItem('osi_rankcache', JSON.stringify(rc));
-      for (var k3 in rc) {
-        var e3 = rc[k3];
-        if (e3 && e3.rank !== undefined) rc[k3] = { from: e3.rank, to: e3.rank, at: e3.at };   // legacy shape: no known change
-      }
-      localStorage.setItem('osi_rankseed_v3', '1');
-    }
-  } catch (e3) {}
   $('btnRefreshLb').addEventListener('click', loadAll);
   renderNameChip();
   flushOutbox();

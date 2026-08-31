@@ -1,0 +1,10 @@
+﻿CREATE TABLE IF NOT EXISTS rank_changes (
+  name TEXT PRIMARY KEY,
+  from_rank INTEGER NOT NULL,
+  to_rank INTEGER NOT NULL,
+  at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS top10_snapshot (
+  pos INTEGER PRIMARY KEY,
+  name TEXT NOT NULL
+);
