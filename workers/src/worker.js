@@ -150,7 +150,7 @@ async function getPlayer(db, key) {
 
 async function upsertPlayer(db, p) {
   await db.prepare(
-    'INSERT INTO players (name, key, level, bpm, ur, plays, total_taps, first_seen, last_seen, best_at, last_hash) ' +
+    'INSERT INTO players (name, key, level, bpm, ur, plays, total_taps, first_seen, last_seen, best_at, last_hash, rebirths) ' +
     'VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12) ' +
     'ON CONFLICT(key) DO UPDATE SET name=?1, level=?3, bpm=?4, ur=?5, plays=?6, total_taps=?7, last_seen=?9, best_at=?10, last_hash=?11, rebirths=?12'
   ).bind(p.name, p.key, p.level, p.bpm, p.ur, p.plays, p.totalTaps, p.firstSeen, p.lastSeen, p.bestAt, p.lastHash || null, p.rebirths || 0).run();
