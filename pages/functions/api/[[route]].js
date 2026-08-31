@@ -43,6 +43,21 @@ function staminaSpec(cyc, k) {
   return { bpm, ur, notes };
 }
 
+/* rebirth perk: notes shrink by 3% per rebirth, with floors (mirror of client):
+   - bursts: never shorter than 5 notes
+   - stamina: computed identically to the client (iterative 1.03 shrink)      */
+function effectiveNotes(baseNotes, isBurst, rebirths) {
+  var rb = Math.max(0, rebirths | 0);
+  if (!rb) return baseNotes;
+  if (isBurst) return Math.max(5, Math.round(baseNotes / Math.pow(1.03, rb)));
+  var out = baseNotes;
+  for (var i = 0; i < rb; i++) {
+    var next = Math.round(out / 1.03);
+    if (baseNotes - next < 1) { next = baseNotes - 1; }
+    out = Math.max(1, next);
+  }
+  return out;
+}
 function specForLevel(L) {
   L = Math.max(1, Math.floor(L));
   if (L <= 79) {
@@ -219,12 +234,18 @@ async function handleFetch(request, env, ctx) {
       const ur = Number(body.ur);
       const notes = Math.floor(Number(body.notes));
       const elapsedMs = Number(body.elapsedMs);
+      var claimedRebirths = Math.max(0, Math.min(9999, Math.floor(Number(body.rebirths) || 0)));
       if (!Number.isFinite(bpm) || !Number.isFinite(ur) || !Number.isFinite(notes) || !Number.isFinite(elapsedMs)) {
         return bad('bad numbers');
       }
 
+      const keyPre = keyFor(name);
+      const pre = keyPre ? await getPlayer(db, keyPre) : null;
+      const storedRb = pre ? (pre.rebirths || 0) : 0;
+      if (claimedRebirths !== storedRb) return bad('rebirth count mismatch', 422);
       const spec = specForLevel(level);
-      if (notes !== spec.notes) return bad('note count mismatch', 422);
+      const effNotes = effectiveNotes(spec.notes, !!spec.burst, storedRb);
+      if (notes !== effNotes) return bad('note count mismatch', 422);
       if (!(bpm >= spec.bpm && ur < spec.ur)) return bad('score does not meet the level requirements', 422);
       if (!plausible({ bpm, ur, notes, elapsedMs })) return bad('physically implausible', 422);
       const proofResult = checkProof({ bpm, ur, notes, elapsedMs, proof: body.proof }, spec);
@@ -290,9 +311,14 @@ async function handleFetch(request, env, ctx) {
       const bpm = Number(body.bpm);
       const ur = Number(body.ur);
       const elapsedMs = Number(body.elapsedMs);
+      var claimedRebirthsTaps = Math.max(0, Math.min(9999, Math.floor(Number(body.rebirths) || 0)));
       if (!Number.isFinite(bpm) || !Number.isFinite(ur) || !Number.isFinite(notes) || !Number.isFinite(elapsedMs)) return bad('bad numbers');
       if (notes < 2 || notes > 10000) return bad('bad notes');
       if (!plausible({ bpm, ur, notes, elapsedMs })) return bad('physically implausible', 422);
+      const keyTaps = keyFor(name);
+      const preTaps = keyTaps ? await getPlayer(db, keyTaps) : null;
+      const storedRbTaps = preTaps ? (preTaps.rebirths || 0) : 0;
+      if (claimedRebirthsTaps !== storedRbTaps) return bad('rebirth count mismatch', 422);
       const proofResult = checkProof({ bpm, ur, notes, elapsedMs, proof: body.proof }, null);
       if (!proofResult) return bad('proof invalid or missing', 422);
 

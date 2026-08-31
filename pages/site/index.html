@@ -389,6 +389,21 @@ function bgColorForLevel(L) {
  *   notes       = 64 + 16 per stamina level to L128 (448), then +32 per stamina
  *                 level from L130 on, capped at 10000 (no marathon jumps)
  */
+/* rebirth perk: notes shrink by 3% per rebirth, with floors:
+   - stamina levels: the per-level increment never drops below +1 note
+   - bursts: never shorter than 5 notes                              */
+function effectiveNotes(baseNotes, isBurst, rebirths) {
+  var rb = Math.max(0, rebirths | 0);
+  if (!rb) return baseNotes;
+  if (isBurst) return Math.max(5, Math.round(baseNotes / Math.pow(1.03, rb)));
+  var prev = baseNotes, out = baseNotes;
+  for (var i = 0; i < rb; i++) {
+    var next = Math.round(out / 1.03);
+    if (baseNotes - next < 1) { next = baseNotes - 1; }   // increment floor: at least +1 note remains per design step
+    out = Math.max(1, next);
+  }
+  return out;
+}
 function levelSpec(L) {
   L = Math.max(1, Math.floor(L));
   if (L <= 79) {
@@ -672,7 +687,10 @@ function goIdle(msgText) {
   metroStop();
   S.state = 'idle'; S.mode = 'level';
   document.body.classList.remove('in-run');
-  const L = store.level, sp = levelSpec(L);
+  const L = store.level;
+  var sp = levelSpec(L);
+  var _rb = 0; try { _rb = parseInt(localStorage.getItem('osi_rebirths') || '0', 10) || 0; } catch (eRb) {}
+  sp = { bpm: sp.bpm, ur: sp.ur, notes: effectiveNotes(sp.notes, !!sp.burst, _rb), burst: !!sp.burst };
   applyTheme(L);
   S.levelNum = L; S.spec = sp;
   $('levelInfo').innerHTML =
@@ -696,6 +714,7 @@ function beginLevel(L, benchIdx) {
   S.spec = benchIdx !== undefined
     ? { bpm: BENCHES[benchIdx].bpm, ur: Infinity, notes: BENCHES[benchIdx].notes, burst: false }
     : levelSpec(L);
+  if (!S.spec.burst) { S.spec = { bpm: S.spec.bpm, ur: S.spec.ur, notes: effectiveNotes(S.spec.notes, false, (function(){ try { return parseInt(localStorage.getItem('osi_rebirths') || '0', 10) || 0; } catch (eR) { return 0; } })()) }; } else { S.spec = { bpm: S.spec.bpm, ur: S.spec.ur, notes: effectiveNotes(S.spec.notes, true, (function(){ try { return parseInt(localStorage.getItem('osi_rebirths') || '0', 10) || 0; } catch (eR2) { return 0; } })()), burst: true }; }
   S.count = 0; S.times = []; S.state = 'ready';
   document.body.classList.add('in-run');
   if (S.mode !== 'bench') applyTheme(L);   // benchmarks keep the current page color
@@ -1238,6 +1257,7 @@ if (typeof module !== 'undefined' && module.exports) {
         bpm: result.bpm,
         ur: result.ur,
         notes: spec.notes,
+        rebirths: (function(){ try { return parseInt(localStorage.getItem('osi_rebirths') || '0', 10) || 0; } catch (eRb3) { return 0; } })(),
         elapsedMs: result.elapsed,
         proof: { clicks: times }
       })
