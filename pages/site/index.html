@@ -139,7 +139,13 @@
   .online-stats{ display:flex; justify-content:center; gap:18px; flex-wrap:wrap; font-size:13.5px; opacity:.95; margin:6px 0 12px; }
   .online-stats b{ font-weight:700; }
   .lb-wrap{ overflow-x:auto; border:1px solid var(--border); border-radius:8px; background:var(--well); }
-  .lb-table{ width:100%; border-collapse:collapse; font-size:14px; }
+  /* rank-change chips: outside the table, aligned to their row */
+  .lb-wrap{ position:relative; }
+  .rc-chip{ position:absolute; left:-58px; width:52px; text-align:right; font-size:11.5px; font-weight:800; pointer-events:none; }
+  .rc-chip .up{ color:#2bff7c; }
+  .rc-chip .down{ color:#ff5f5f; }
+
+  .lb-table{ width:calc(100% - 58px); margin-left:58px; border-collapse:collapse; font-size:14px; }
   .lb-table th{ font-size:12px; letter-spacing:.6px; text-transform:uppercase; opacity:.75; padding:8px 10px; border-bottom:1px solid var(--border); }
   .lb-table td{ padding:7px 10px; border-bottom:1px solid var(--border); }
   .lb-table tr:last-child td{ border-bottom:none; }
@@ -161,6 +167,14 @@
   .rc-up{ color:#2bff7c; font-weight:800; font-size:11px; margin-right:3px; }
   .lb-noclear{ opacity:.5; }
   .rc-down{ color:#ff5f5f; font-weight:800; font-size:11px; margin-right:3px; }
+  .rb-I{ background:linear-gradient(90deg,#e8e8e8,#8a8a8a,#f5f5f5); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800; }
+  .rb-V{ background:linear-gradient(90deg,#7aa2ff,#b388ff,#e0c3fc); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800; }
+  .rb-X{ background:linear-gradient(90deg,#ffd700,#1a1a1a,#ffd700); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800; }
+  .rb-L{ background:linear-gradient(90deg,#ff9a9e,#fecfef,#a18cd1,#fbc2eb); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800; }
+  .rb-C{ background:linear-gradient(90deg,#00d2ff,#928dab); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800; }
+  .rb-D{ background:linear-gradient(90deg,#f7971e,#ffd200,#b06ab3); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800; }
+  .rb-M{ background:linear-gradient(90deg,#ee0979,#ff6a00,#ffe259,#00c9ff); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800; }
+  .rb-cell{ font-size:15px; letter-spacing:1px; }
   .g-fresh{ background:linear-gradient(90deg,#ffe97a,#1a1a1a); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:600; }
   .g-bpm-150{ background:linear-gradient(90deg,#5a8dd6,#c3d7ff); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:600; }
   .g-bpm-200{ background:linear-gradient(90deg,#2196f3,#8be9fd); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:600; }
@@ -252,6 +266,7 @@
     </div>
 
     <div class="test-row"><button id="btnTest" class="btn">take me to a suitable level</button></div>
+    <div class="test-row"><button id="btnRebirth" class="btn" style="display:none">rebirth</button></div>
 
     <div class="msg" id="msg"></div>
     <div class="advice" id="advice" style="display:none"></div>
@@ -272,8 +287,8 @@
   <div class="online-stats" id="onlineStats">loading global stats&hellip;</div>
   <div class="lb-wrap">
     <table class="lb-table" id="lbTable">
-      <thead><tr><th>#</th><th>player</th><th>level</th><th>bpm</th><th>ur</th><th>total taps</th><th>submitted</th></tr></thead>
-      <tbody id="lbBody"><tr><td colspan="7" class="lb-muted">loading&hellip;</td></tr></tbody>
+      <thead><tr><th>#</th><th>player</th><th>rebirth</th><th>level</th><th>bpm</th><th>ur</th><th>total taps</th><th>submitted</th></tr></thead>
+      <tbody id="lbBody"><tr><td colspan="8" class="lb-muted">loading&hellip;</td></tr></tbody>
     </table>
   </div>
   <div class="lb-actions">
@@ -887,7 +902,9 @@ function showTestResult() {
   const avgBpm = b / S.benchResults.length;
   const avgUr = u / S.benchResults.length;
 
-  const effBpm = avgBpm / 1.22;   // placement nerf: benchmark bursts inflate the avg
+  var effBpm = avgBpm / 1.22;   // placement nerf: benchmark bursts inflate the avg
+  var myRb = 0; try { myRb = parseInt(localStorage.getItem('osi_rebirths') || '0', 10) || 0; } catch (e6) {}
+  effBpm = effBpm * Math.pow(1.03, myRb);   // rebirth perk: +3% effective benchmark bpm per rebirth
   let beaten = 0;
   for (let L = 1; L <= 5000; L++) {
     const sp = levelSpec(L);
@@ -1230,6 +1247,7 @@ if (typeof module !== 'undefined' && module.exports) {
     }).then(function (data) {
       var st = $('lbStatus');
       if (st) st.textContent = 'score submitted (level ' + data.level + ')';
+      updateRebirthBtn(data.level);
       loadAll();
     }).catch(function (err) {
       console.warn('[osi] submit failed', err);
@@ -1261,6 +1279,38 @@ if (typeof module !== 'undefined' && module.exports) {
       loadAll();
     });
   };
+  function updateRebirthBtn(level) {
+    var b = $('btnRebirth');
+    if (!b) return;
+    var req = 50 + (myRebirths || 0) * 10;
+    b.textContent = 'rebirth (lvl' + req + ')';
+    b.style.display = (level !== undefined && level >= req) ? 'inline-block' : 'none';
+  }
+  function doRebirth() {
+    if (!myName) return;
+    var req = 50 + (myRebirths || 0) * 10;
+    if (!confirm('Rebirth? Level and best score reset to 0. Total taps are KEPT. Requirement: level ' + req + '+.')) return;
+    fetch(API_BASE + '/api/rebirth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: myName })
+    }).then(function (res) { return res.json(); }).then(function (data) {
+      if (!data.ok) throw new Error(data.error || 'rebirth failed');
+      myRebirths = data.rebirths;
+      try { localStorage.setItem('osi_rebirths', String(myRebirths)); } catch (e5) {}
+      var st = $('lbStatus');
+      if (st) st.textContent = 'REBIRTH ' + myRebirths + ' complete - level reset, total taps kept';
+      var btn = $('btnRebirth');
+      if (btn) btn.style.display = 'none';
+      loadAll();
+    }).catch(function (err) {
+      console.warn('[osi] rebirth failed', err);
+      var st = $('lbStatus');
+      if (st) st.textContent = 'rebirth failed: ' + err.message;
+    });
+  }
+  var rbBtn = $('btnRebirth');
+  if (rbBtn) rbBtn.addEventListener('click', doRebirth);
   /* ---------- relative time (submission age) ---------- */
   function ago(ts) {
     if (!ts) return '-';
@@ -1372,6 +1422,17 @@ if (typeof module !== 'undefined' && module.exports) {
     if (t >= 500) return 'g-tap-500';
     return '';
   }
+  function autoclickerSuspicion(r) {
+    // heuristic: UR far too perfect for the bpm tier (under 0.35% of bpm, floor 3)
+    if (!(r.bpm > 0) || !(r.ur > 0)) return false;
+    return r.ur < Math.max(3, r.bpm * 0.0035);
+  }
+  function dksSuspicion(r) {
+    return r.bpm > 567;
+  }
+  function rebirthAdjustedBpm(baseBpm, rebirths) {
+    return baseBpm * Math.pow(1.03, rebirths || 0);
+  }
   function rankEmoji(r) {
     // built from char codes so the source stays pure ASCII (a previous write mangled raw emoji bytes)
     var pair = function (hi, lo) { return String.fromCharCode(hi, lo) + " "; };
@@ -1395,34 +1456,77 @@ if (typeof module !== 'undefined' && module.exports) {
     if (d > 0) return '<span class="rc-up">' + UP + d + '</span> ';
     return '<span class="rc-down">' + DN + (-d) + '</span> ';
   }
+  function roman(n) {
+    if (!n) return "";
+    var map = [[1000,"M"],[900,"CM"],[500,"D"],[400,"CD"],[100,"C"],[90,"XC"],[50,"L"],[40,"XL"],[10,"X"],[9,"IX"],[5,"V"],[4,"IV"],[1,"I"]];
+    var out = "";
+    for (var i = 0; i < map.length; i++) { while (n >= map[i][0]) { out += map[i][1]; n -= map[i][0]; } }
+    return out;
+  }
+  function rbClass(n) {
+    if (n >= 1000) return "rb-M";
+    if (n >= 500) return "rb-D";
+    if (n >= 100) return "rb-C";
+    if (n >= 50) return "rb-L";
+    if (n >= 10) return "rb-X";
+    if (n >= 5) return "rb-V";
+    if (n >= 1) return "rb-I";
+    return "";
+  }
+  var myRebirths = 0; try { myRebirths = parseInt(localStorage.getItem('osi_rebirths') || '0', 10) || 0; } catch (e0) {}
   function renderLb(rows) {
     var body = $('lbBody');
     if (!body) return;
     if (!rows || !rows.length) {
-      body.innerHTML = '<tr><td colspan="7" class="lb-muted">no scores yet &mdash; clear a level to appear here</td></tr>';
+      body.innerHTML = '<tr><td colspan="8" class="lb-muted">no scores yet &mdash; clear a level to appear here</td></tr>';
       return;
     }
     var html = '';
     rows.forEach(function (r) {
       var me = myName && r.name && r.name.toLowerCase() === myName.toLowerCase();
+      if (me) { myRebirths = r.rebirths || 0; updateRebirthBtn(r.level); }
       html += '<tr' + (me ? ' class="lb-me"' : '') + '>' +
-        '<td class="lb-rank">' + deltaHtml(r) + rankEmoji(r) + r.rank + '</td>' +
-        '<td>' + esc(r.name) + '</td>' +
+        '<td class="lb-rank">' + r.rank + '</td>' +
+        '<td>' + esc(r.name) + ' ' + rankEmoji(r) + '</td>' +
+        '<td class="rb-cell">' + (r.rebirths ? '<span class="' + rbClass(r.rebirths) + '">' + roman(r.rebirths) + '</span>' : '') + '</td>' +
         '<td class="lb-lvl ' + tierClass(r.level) + '">' + (r.level > 0 ? r.level : '<span class="lb-noclear" title="no level cleared yet - the placement button places you, but only clears you make count">-</span>') + '</td>' +
-        '<td class="' + bpmClass(r.bpm) + '">' + fmt(r.bpm, 2) + '</td>' +
+        '<td class="' + bpmClass(r.bpm) + '">' + fmt(r.bpm, 2) + (dksSuspicion(r) ? ' <span style="color:grey;font-size:11px">(DKS abuse?!!)</span>' : (autoclickerSuspicion(r) ? ' <span style="color:grey;font-size:11px">(autoclicker!??)</span>' : '')) + '</td>' +
         '<td class="' + urClass(r.ur) + '">' + fmt(r.ur, 1) + '</td>' +
         '<td class="' + tapsClass(r.totalTaps) + '">' + fmt(r.totalTaps) + '</td>' +
         '<td class="lb-when ' + freshClass(r.bestAt || r.lastSeen) + '" title="' + esc(new Date(r.bestAt || r.lastSeen || Date.now()).toLocaleString()) + '">' + ago(r.bestAt || r.lastSeen) + '</td>' +
         '</tr>';
     });
     body.innerHTML = html;
+    /* rank-change chips: floating OUTSIDE the table in a reserved gutter, vertically centered on their rows */
+    try {
+      var wrap = body.closest('.lb-wrap');
+      if (wrap) {
+        wrap.querySelectorAll('.rc-chip").forEach(function (el) { el.remove(); });
+        var wrapRect = wrap.getBoundingClientRect();
+        rows.slice(0, 10).forEach(function (r, rowIdx) {
+          if (!r.rc) return;
+          var d = r.rc.from - r.rc.to;
+          if (!d) return;
+          var tr = body.rows[rowIdx];
+          if (!tr) return;
+          var chip = document.createElement('div');
+          chip.className = 'rc-chip';
+          var rect = tr.getBoundingClientRect();
+          chip.style.top = (rect.top - wrapRect.top + rect.height / 2) + 'px';
+          chip.innerHTML = d > 0
+            ? '<span class="up">' + String.fromCharCode(0x25B2) + d + '</span>'
+            : '<span class="down">' + String.fromCharCode(0x25BC) + (-d) + '</span>';
+          wrap.appendChild(chip);
+        });
+      }
+    } catch (eChip) {}
 
   }
 
   function loadAll() {
     if (!API_BASE || API_BASE.indexOf('https://') !== 0) {
       var b = $('lbBody');
-      if (b) b.innerHTML = '<tr><td colspan="7" class="lb-muted">leaderboard not configured yet</td></tr>';
+      if (b) b.innerHTML = '<tr><td colspan="8" class="lb-muted">leaderboard not configured yet</td></tr>';
       return;
     }
     fetch(API_BASE + '/api/stats').then(function (r) { return r.json(); }).then(renderStats).catch(function () {});
@@ -1430,7 +1534,7 @@ if (typeof module !== 'undefined' && module.exports) {
       renderLb(d.leaderboard);
     }).catch(function () {
       var b = $('lbBody');
-      if (b) b.innerHTML = '<tr><td colspan="7" class="lb-muted">leaderboard unreachable (offline?)</td></tr>';
+      if (b) b.innerHTML = '<tr><td colspan="8" class="lb-muted">leaderboard unreachable (offline?)</td></tr>';
     });
   }
 

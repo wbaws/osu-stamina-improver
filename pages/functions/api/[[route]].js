@@ -137,6 +137,7 @@ function rowToEntry(r) {
     firstSeen: r.first_seen,
     lastSeen: r.last_seen,
     bestAt: r.best_at,
+    rebirths: r.rebirths || 0,
   };
 }
 
@@ -150,9 +151,9 @@ async function getPlayer(db, key) {
 async function upsertPlayer(db, p) {
   await db.prepare(
     'INSERT INTO players (name, key, level, bpm, ur, plays, total_taps, first_seen, last_seen, best_at, last_hash) ' +
-    'VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11) ' +
-    'ON CONFLICT(key) DO UPDATE SET name=?1, level=?3, bpm=?4, ur=?5, plays=?6, total_taps=?7, last_seen=?9, best_at=?10, last_hash=?11'
-  ).bind(p.name, p.key, p.level, p.bpm, p.ur, p.plays, p.totalTaps, p.firstSeen, p.lastSeen, p.bestAt, p.lastHash || null).run();
+    'VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12) ' +
+    'ON CONFLICT(key) DO UPDATE SET name=?1, level=?3, bpm=?4, ur=?5, plays=?6, total_taps=?7, last_seen=?9, best_at=?10, last_hash=?11, rebirths=?12'
+  ).bind(p.name, p.key, p.level, p.bpm, p.ur, p.plays, p.totalTaps, p.firstSeen, p.lastSeen, p.bestAt, p.lastHash || null, p.rebirths || 0).run();
 }
 
 async function handleFetch(request, env, ctx) {
@@ -177,6 +178,7 @@ async function handleFetch(request, env, ctx) {
       const ranked = (rs.results || []).map((r, i) => {
         const e = rowToEntry(r);
         e.rank = i + 1;
+        e.rebirths = r.rebirths || 0;
         if (r.rc_at && r.rc_from !== null && r.rc_from !== undefined && r.rc_from !== r.rc_to) {
           const age = Date.now() - Date.parse(r.rc_at);
           if (age >= 0 && age <= 7 * 24 * 3600000) e.rc = { from: r.rc_from, to: r.rc_to, at: r.rc_at };
@@ -250,6 +252,7 @@ async function handleFetch(request, env, ctx) {
         lastSeen: now,
         bestAt: better ? now : (existing ? existing.best_at : now),
         lastHash: hash,
+        rebirths: existing ? (existing.rebirths || 0) : 0,
       });
       if (better) {
         try {
@@ -314,10 +317,28 @@ async function handleFetch(request, env, ctx) {
         lastSeen: now,
         bestAt: existing ? existing.best_at : now,
         lastHash: hash,
+        rebirths: existing ? (existing.rebirths || 0) : 0,
       });
       return json({ ok: true, totalTaps: (prev.totalTaps || 0) + notes });
     }
 
+    if (url.pathname === '/api/rebirth' && request.method === 'POST') {
+      let body;
+      try { body = await request.json(); } catch (e) { return bad('invalid json'); }
+      const name = typeof body.name === 'string' ? body.name.trim().slice(0, 16) : '';
+      if (!name) return bad('missing name');
+      const key = keyFor(name);
+      if (!key) return bad('bad name');
+      const existing = await getPlayer(db, key);
+      if (!existing) return bad('unknown player', 404);
+      const cur = rowToEntry(existing);
+      const nextReq = 50 + (cur.rebirths || 0) * 10;   // first rebirth at 50, then +10 each
+      if (!Number.isFinite(cur.level) || cur.level < nextReq) return bad('level ' + nextReq + '+ required for this rebirth', 422);
+      await db.prepare('UPDATE players SET level = 0, bpm = 0, ur = 0, rebirths = ?2, best_at = ?3 WHERE key = ?1')
+        .bind(key, (cur.rebirths || 0) + 1, nowISO()).run();
+      MEM.lb.at = 0; MEM.stats.at = 0;
+      return json({ ok: true, rebirths: (cur.rebirths || 0) + 1, nextRequirement: 50 + (cur.rebirths || 0) * 10 + 10 });
+    }
     return bad('not found', 404);
 }
 
