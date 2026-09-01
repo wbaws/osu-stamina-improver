@@ -141,6 +141,7 @@ async function bodyHash(sub) {
 }
 
 /* ---------------- row <-> entry mapping ---------------- */
+function round2(x) { return Math.round(x * 100) / 100; }
 function rowToEntry(r) {
   return {
     name: r.name,
@@ -364,6 +365,38 @@ export default {
       MEM.lb.at = 0; MEM.stats.at = 0;
       return json({ ok: true, rebirths: (cur.rebirths || 0) + 1, nextRequirement: 50 + (cur.rebirths || 0) * 10 + 10 });
     }
+    if (url.pathname === '/api/place' && request.method === 'POST') {
+      let body;
+      try { body = await request.json(); } catch (e) { return bad('invalid json'); }
+      const name = typeof body.name === 'string' ? body.name.trim().slice(0, 16) : '';
+      if (!name) return bad('missing name');
+      const key = keyFor(name);
+      if (!key) return bad('bad name');
+      const existing = await getPlayer(db, key);
+      if (!existing) return bad('unknown player - clear a level first', 404);
+      const avgBpm = Number(body.avgBpm);
+      const avgUr = Number(body.avgUr);
+      const benchRebirths = Math.max(0, Math.min(9999, Math.floor(Number(body.rebirths) || 0)));
+      if (!Number.isFinite(avgBpm) || avgBpm < 50 || avgBpm > 3000) return bad('bad avgBpm');
+      if (!Number.isFinite(avgUr) || avgUr < 0 || avgUr > 1000) return bad('bad avgUr');
+      if (benchRebirths !== (existing.rebirths || 0)) return bad('rebirth count mismatch', 422);
+      // server recomputes the placement with the same formula as the client
+      const effBpm = (avgBpm / 1.22) * Math.pow(1.03, existing.rebirths || 0);
+      let beaten = 0;
+      for (let L = 1; L <= 5000; L++) {
+        const sp = specForLevel(L);
+        if (!sp.burst && sp.bpm > effBpm) break;
+        if (effBpm >= sp.bpm && avgUr < sp.ur) beaten = L;
+      }
+      if (beaten < 1) return bad('placement too low to register', 422);
+      if (beaten <= (existing.level || 0)) return json({ ok: true, placed: beaten, registered: false, level: existing.level, reason: 'not higher than current' });   // not a pb: no-op
+      const now = nowISO();
+      await db.prepare('UPDATE players SET level = ?2, bpm = ?3, ur = ?4, best_at = ?5, last_seen = ?6 WHERE key = ?1')
+        .bind(key, beaten, round2(avgBpm), round2(avgUr), now, now).run();
+      MEM.lb.at = 0; MEM.stats.at = 0;
+      return json({ ok: true, placed: beaten, registered: true, level: beaten });
+    }
+
     return bad('not found', 404);
   },
 };

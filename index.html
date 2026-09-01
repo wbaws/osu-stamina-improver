@@ -932,6 +932,21 @@ function showTestResult() {
   }
   const next = beaten + 1;
   store.level = next;
+  // register the placement as the player's pb if it beats their stored level
+  if (API_BASE && API_BASE.indexOf('https://') === 0 && myName) {
+    fetch(API_BASE + '/api/place', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: myName, avgBpm: avgBpm, avgUr: avgUr, rebirths: currentRebirths() })
+    }).then(function (res) { return res.json(); }).then(function (data) {
+      if (!data || !data.ok) return;
+      if (data.registered) {
+        var st = $('lbStatus');
+        if (st) st.textContent = 'placement registered: level '+data.placed+' (pb)';
+        loadAll();
+      }
+    }).catch(function () {});
+  }
   $('levelInfo').innerHTML =
     '<div class="level-num">Test results</div>' +
     '<div class="level-stats">you streamed <b>' + Math.round(avgBpm) + ' bpm</b> avg · UR <b>' + Math.round(avgUr) + '</b> avg</div>';
@@ -1309,7 +1324,7 @@ if (typeof module !== 'undefined' && module.exports) {
   function doRebirth() {
     if (!myName) return;
     var req = 50 + (myRebirths || 0) * 10;
-    if (!confirm('Rebirth? Level and best score reset to 0. Total taps are KEPT. Requirement: level ' + req + '+.')) return;
+    if (!confirm('Rebirth? Your level and best score reset to 0 (total taps are KEPT). In exchange, every level gets slightly easier: notes shrink 3% per rebirth (bursts bottom out at 5) and your placement gets +3% stronger. Requirement: level ' + req + '+.')) return;
     fetch(API_BASE + '/api/rebirth', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1320,6 +1335,7 @@ if (typeof module !== 'undefined' && module.exports) {
       try { localStorage.setItem('osi_rebirths', String(myRebirths)); } catch (e5) {}
       store.level = 1;   // reset local progression too, so the next grind starts from level 1
       store.best = 0;
+      if (typeof goIdle === 'function') { try { goIdle('rebirth complete - welcome to level 1'); } catch (e6) {} }   // re-render the level panel right now
       var st = $('lbStatus');
       if (st) st.textContent = 'REBIRTH ' + myRebirths + ' complete - level reset, total taps kept';
       var btn = $('btnRebirth');
@@ -1451,7 +1467,7 @@ if (typeof module !== 'undefined' && module.exports) {
   function autoclickerSuspicion(r) {
     // heuristic: UR far too perfect for the bpm tier (under 0.35% of bpm, floor 3)
     if (!(r.bpm > 0) || !(r.ur > 0)) return false;
-    return r.ur < Math.max(3, r.bpm * 0.0035);
+    return r.ur < 15;
   }
   function dksSuspicion(r) {
     return r.bpm > 567;
