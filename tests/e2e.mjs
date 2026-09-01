@@ -59,11 +59,12 @@ const forged = await fetch(BASE + '/api/submit', {
 });
 check('forged submission rejected (422)', forged.status === 422, 'status ' + forged.status);
 
-const rbMismatch = await fetch(BASE + '/api/submit', {
+const rbClaim = await fetch(BASE + '/api/submit', {
   method: 'POST', headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ name: RUN, level: 90, bpm, ur, notes: 144, elapsedMs: elapsed, rebirths: 3, proof: { clicks } })
+  body: JSON.stringify({ name: RUN + '-rb', level: 90, bpm, ur, notes: 144, elapsedMs: elapsed, rebirths: 3, proof: { clicks } })
 });
-check('rebirth count mismatch rejected (422)', rbMismatch.status === 422, 'status ' + rbMismatch.status);
+const rbClaimJson = await rbClaim.json().catch(() => ({}));
+check('client rebirths claim is ignored (accepted 200)', rbClaim.status === 200 && rbClaimJson.ok === true, 'status ' + rbClaim.status + ' ' + JSON.stringify(rbClaimJson));
 
 const mismatch = await fetch(BASE + '/api/submit', {
   method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -106,12 +107,13 @@ const taps3 = await fetch(BASE + '/api/taps', {
 });
 check('forged taps rejected (422)', taps3.status === 422, 'status ' + taps3.status);
 
+const run4 = makeRun(run2.clicks.length, 172);
 const taps4 = await fetch(BASE + '/api/taps', {
   method: 'POST', headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ name: 'nobody-' + RUN, notes: run2.clicks.length, bpm: run2.bpm, ur: run2.ur, elapsedMs: run2.elapsed, proof: { clicks: run2.clicks } })
+  body: JSON.stringify({ name: 'nobody-' + RUN, notes: run4.clicks.length, bpm: run4.bpm, ur: run4.ur, elapsedMs: run4.elapsed, proof: { clicks: run4.clicks } })
 });
 const taps4j = await taps4.json().catch(() => ({}));
-check('unknown player taps create entry (200)', taps4.status === 200 && taps4j.ok === true && taps4j.totalTaps === run2.clicks.length, JSON.stringify(taps4j));
+check('unknown player taps create entry (200)', taps4.status === 200 && taps4j.ok === true && taps4j.totalTaps === run4.clicks.length, JSON.stringify(taps4j));
 
 const me = await waitFor('leaderboard entry', async () => {
   const lb = await (await fetch(BASE + '/api/leaderboard')).json();
