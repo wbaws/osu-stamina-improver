@@ -9,7 +9,9 @@ try {
   const out = execSync('npx wrangler d1 execute osi-leaderboard --remote --command "' + cmd + '" -y', { stdio: 'pipe', encoding: 'utf8' });
   console.log('cleanup executed');
   const check = execSync('npx wrangler d1 execute osi-leaderboard --remote --command "SELECT COUNT(*) AS remaining FROM players WHERE key LIKE \'%e2e%\'" --json', { stdio: 'pipe', encoding: 'utf8' });
-  const j = JSON.parse(check.slice(check.indexOf('{')));
+  const start = check.indexOf('{');
+  const end = check.lastIndexOf('}');
+  const j = JSON.parse(check.slice(start, end + 1));
   console.log('remaining e2e rows: ' + (j.result && j.result[0] ? j.result[0].remaining : '?'));
 } catch (e) {
   console.error('cleanup failed: ' + (e.stderr || e.message));
