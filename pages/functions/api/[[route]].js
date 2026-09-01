@@ -242,10 +242,9 @@ async function handleFetch(request, env, ctx) {
       const keyPre = keyFor(name);
       const pre = keyPre ? await getPlayer(db, keyPre) : null;
       const storedRb = pre ? (pre.rebirths || 0) : 0;
-      if (claimedRebirths !== storedRb) return bad('rebirth count mismatch', 422);
       const spec = specForLevel(level);
       const effNotes = effectiveNotes(spec.notes, !!spec.burst, storedRb);
-      if (notes !== effNotes) return bad('note count mismatch', 422);
+      if (notes !== spec.notes && notes !== effNotes) return bad('note count mismatch', 422);   // base (harder) or perk-shrunk both legit
       if (!(bpm >= spec.bpm && ur < spec.ur)) return bad('score does not meet the level requirements', 422);
       if (!plausible({ bpm, ur, notes, elapsedMs })) return bad('physically implausible', 422);
       const proofResult = checkProof({ bpm, ur, notes, elapsedMs, proof: body.proof }, spec);
@@ -318,7 +317,6 @@ async function handleFetch(request, env, ctx) {
       const keyTaps = keyFor(name);
       const preTaps = keyTaps ? await getPlayer(db, keyTaps) : null;
       const storedRbTaps = preTaps ? (preTaps.rebirths || 0) : 0;
-      if (claimedRebirthsTaps !== storedRbTaps) return bad('rebirth count mismatch', 422);
       const proofResult = checkProof({ bpm, ur, notes, elapsedMs, proof: body.proof }, null);
       if (!proofResult) return bad('proof invalid or missing', 422);
 

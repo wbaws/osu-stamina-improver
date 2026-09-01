@@ -1510,7 +1510,7 @@ if (typeof module !== 'undefined' && module.exports) {
     var html = '';
     rows.forEach(function (r) {
       var me = myName && r.name && r.name.toLowerCase() === myName.toLowerCase();
-      if (me) { myRebirths = r.rebirths || 0; updateRebirthBtn(r.level); }
+      if (me) { myRebirths = r.rebirths || 0; try { localStorage.setItem('osi_rebirths', String(myRebirths)); } catch (eSync) {} updateRebirthBtn(r.level); }   // server truth syncs the device
       html += '<tr' + (me ? ' class="lb-me"' : '') + '>' +
         '<td class="lb-rank">' + r.rank + '</td>' +
         '<td>' + esc(r.name) + ' ' + rankEmoji(r) + '</td>' +
