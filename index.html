@@ -1210,7 +1210,7 @@ if (typeof module !== 'undefined' && module.exports) {
   }
   function postRun(entry) {
     var path = entry.kind === 'submit' ? '/api/submit' : '/api/taps';
-    var payload = { name: myName, notes: entry.notes, bpm: entry.bpm, ur: entry.ur, elapsedMs: entry.elapsedMs, proof: { clicks: entry.clicks } };
+    var payload = { name: myName, notes: entry.notes, bpm: entry.bpm, ur: entry.ur, elapsedMs: entry.elapsedMs, rebirths: currentRebirths(), proof: { clicks: entry.clicks } };
     if (entry.kind === 'submit') payload.level = entry.level;
     return fetch(API_BASE + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).then(function (res) {
       if (res.ok || res.status === 409 || res.status === 422) return res.json().catch(function () { return {}; });
@@ -1257,7 +1257,7 @@ if (typeof module !== 'undefined' && module.exports) {
         bpm: result.bpm,
         ur: result.ur,
         notes: spec.notes,
-        rebirths: (function(){ try { return parseInt(localStorage.getItem('osi_rebirths') || '0', 10) || 0; } catch (eRb3) { return 0; } })(),
+        rebirths: currentRebirths(),
         elapsedMs: result.elapsed,
         proof: { clicks: times }
       })
@@ -1318,6 +1318,8 @@ if (typeof module !== 'undefined' && module.exports) {
       if (!data.ok) throw new Error(data.error || 'rebirth failed');
       myRebirths = data.rebirths;
       try { localStorage.setItem('osi_rebirths', String(myRebirths)); } catch (e5) {}
+      store.level = 1;   // reset local progression too, so the next grind starts from level 1
+      store.best = 0;
       var st = $('lbStatus');
       if (st) st.textContent = 'REBIRTH ' + myRebirths + ' complete - level reset, total taps kept';
       var btn = $('btnRebirth');
@@ -1331,6 +1333,9 @@ if (typeof module !== 'undefined' && module.exports) {
   }
   var rbBtn = $('btnRebirth');
   if (rbBtn) rbBtn.addEventListener('click', doRebirth);
+  function currentRebirths() {
+    try { return parseInt(localStorage.getItem('osi_rebirths') || '0', 10) || 0; } catch (eR) { return 0; }
+  }
   /* ---------- relative time (submission age) ---------- */
   function ago(ts) {
     if (!ts) return '-';
@@ -1362,6 +1367,7 @@ if (typeof module !== 'undefined' && module.exports) {
         bpm: result.bpm,
         ur: result.ur,
         elapsedMs: result.elapsed,
+        rebirths: currentRebirths(),
         proof: { clicks: times }
       })
     }).then(function (res) {
