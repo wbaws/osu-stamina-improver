@@ -812,6 +812,17 @@ function press() {
   if (S.count >= S.spec.notes) finishRun();
 }
 
+function playCelebration(bpm) {
+  try {
+    var src = null;
+    if (bpm >= 500) src = 'yara-yara-500.mp3';
+    else if (bpm >= 350) src = 'tiki-tiki-350.mp3';
+    if (!src) return;
+    var a = new Audio(src);
+    a.volume = 0.85;
+    a.play().catch(function () {});   // called from a user-gesture chain, autoplay-safe
+  } catch (eAudio) {}
+}
 function finishRun() {
   metroStop();
   S.state = 'done';
@@ -838,6 +849,7 @@ function finishRun() {
     store.best = S.levelNum;
     setStatus('Level ' + S.levelNum + ' cleared!', 'good');
     if (window.OSISubmit) window.OSISubmit(S.levelNum, r, sp, S.times);
+    playCelebration(r.bpm);   // 350+ tiki-tiki, 500+ yara-yara phonk
     setMsg('');
     $('advice').style.display = 'none';
     setBtn('btnPrimary', true);
