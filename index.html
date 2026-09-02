@@ -166,7 +166,9 @@
   .g-bpm-550{ background:linear-gradient(90deg,#00ffc8,#ff00cc,#ffe600); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800; }
   .g-bpm-600{ background:linear-gradient(90deg,#ff206e,#41ead4,#fbff12); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800; }
   .g-bpm-hot2{ background:linear-gradient(90deg,#2b2b2b,#800000,#ff3d00); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800; }
-  .wysi{ color:#ff9100; font-weight:800; font-size:10.5px; }
+  .wysi{ background:linear-gradient(90deg,#000000 0%,#ffffff 38%,#8a2be2 62%,#000000 100%); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800; font-size:10.5px; }
+  .sixseven{ background:linear-gradient(90deg,#ff6a00,#ffd000,#ff6a00); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800; font-size:10.5px; }
+  .rwfr{ color:#8a2be2; font-weight:800; font-size:10.5px; }
   .g-ur-sweet{ background:linear-gradient(90deg,#39ff14,#2e8b57); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
   .g-ur-cold{ background:linear-gradient(90deg,#39ff14,#0a0a0a,#b3e5fc); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
   .rc-up{ color:#2bff7c; font-weight:800; font-size:11px; margin-right:3px; }
@@ -301,6 +303,9 @@
     </table>
   </div>
   <div class="lb-actions">
+    <button class="btn" id="btnPrevPage" style="display:none">&larr; page 1</button>
+    <button class="btn" id="btnNextPage" style="display:none">next page &rarr;</button>
+
     <button class="btn" id="btnName">set your name</button>
     <button class="btn" id="btnRefreshLb">refresh</button>
     <span class="lb-muted" id="lbStatus"></span>
@@ -1521,11 +1526,35 @@ if (typeof module !== 'undefined' && module.exports) {
     if (!(r.bpm > 0) || !(r.ur > 0)) return false;
     return r.ur < 15;
   }
-  function wysi(v) {
-    // osu! community joke: any value containing 727 / 72.7 / 7.27 gets flagged (WYSI = when you see it)
-    if (v === undefined || v === null) return '';
-    var s = String(v).replace(',', '.');
-    return (s.indexOf('727') !== -1 || s.indexOf('72.7') !== -1 || s.indexOf('7.27') !== -1) ? ' <span class="wysi" title="WYSI - when you see it">(WYSI)</span>' : '';
+      /* meme badges: WYSI (727) and Six Seven (67), plus (r we fr) for absurd URs.
+     decimal checks only count 2 digits past the point (no hidden 727s in raw floats). */
+  function badge(s, cls, title) {
+    return ' <span class="' + cls + '" title="' + title + '">(' + s + ')</span>';
+  }
+  function memesFor(text) {
+    var out = "";
+    if (!text) return out;
+    text = String(text).replace(/,/g, ".");
+    var digits = text.replace(/[^0-9]/g, "");
+    if (text.indexOf("727") !== -1 || text.indexOf("72.7") !== -1 || text.indexOf("7.27") !== -1 || text.indexOf("7/27") !== -1 || digits.indexOf("727") !== -1) out += badge("WYSI", "wysi", "WYSI - when you see it");
+    if (text.indexOf("67") !== -1 || text.indexOf("6.7") !== -1 || text.indexOf(".67") !== -1 || text.indexOf("6/7") !== -1 || digits.indexOf("67") !== -1) out += badge("Six Sevenn", "sixseven", "six sevennnn");
+    return out;
+  }
+  function limit2(v) {
+    if (v === undefined || v === null) return "";
+    var s = String(v).replace(/,/g, ".");
+    var m = s.match(/^(\d+)\.?(\d*)/);
+    if (!m) return "";
+    return m[1] + (m[2] ? "." + m[2].slice(0, 2) : "");   // only 2 decimals count
+  }
+  function wysi(v) { return memesFor(limit2(v)); }
+  function wysiDate(ts) {
+    if (!ts) return "";
+    try { return memesFor(new Date(ts).toLocaleString()); } catch (eW) { return ""; }
+  }
+  function urWeFr(ur) {
+    if (!(ur > 0) || ur >= 20) return "";
+    return badge("r we fr", "rwfr", "UR below 20: r we fr?");
   }
   function dksSuspicion(r) {
     return r.bpm > 567;
@@ -1591,9 +1620,9 @@ if (typeof module !== 'undefined' && module.exports) {
         '<td class="rb-cell">' + (r.rebirths ? '<span class="' + rbClass(r.rebirths) + '">' + roman(r.rebirths) + '</span>' : '') + '</td>' +
         '<td class="lb-lvl ' + tierClass(r.level) + '">' + (r.level > 0 ? r.level + wysi(r.level) : '<span class="lb-noclear" title="no level cleared yet - the placement button places you, but only clears you make count">-</span>') + '</td>' +
         '<td class="' + bpmClass(r.bpm) + '">' + fmt(r.bpm, 2) + wysi(r.bpm) + (dksSuspicion(r) ? ' <span style="color:grey;font-size:11px">(DKS abuse?!!)</span>' : (autoclickerSuspicion(r) ? ' <span style="color:grey;font-size:11px">(autoclicker!??)</span>' : '')) + '</td>' +
-        '<td class="' + urClass(r.ur) + '">' + fmt(r.ur, 1) + wysi(r.ur) + '</td>' +
+        '<td class="' + urClass(r.ur) + '">' + fmt(r.ur, 1) + wysi(r.ur) + urWeFr(r.ur) + '</td>' +
         '<td class="' + tapsClass(r.totalTaps) + '">' + fmt(r.totalTaps) + '</td>' +
-        '<td class="lb-when ' + freshClass(r.bestAt || r.lastSeen) + '" title="' + esc(new Date(r.bestAt || r.lastSeen || Date.now()).toLocaleString()) + '">' + ago(r.bestAt || r.lastSeen) + '</td>' +
+        '<td class="lb-when ' + freshClass(r.bestAt || r.lastSeen) + '" title="' + esc(new Date(r.bestAt || r.lastSeen || Date.now()).toLocaleString()) + '">' + ago(r.bestAt || r.lastSeen) + wysiDate(r.bestAt || r.lastSeen) + '</td>' +
         '</tr>';
     });
     body.innerHTML = html;
@@ -1644,6 +1673,7 @@ if (typeof module !== 'undefined' && module.exports) {
 
   }
 
+  var page = 1;
   function loadAll() {
     if (!API_BASE || API_BASE.indexOf('https://') !== 0) {
       var b = $('lbBody');
@@ -1651,8 +1681,11 @@ if (typeof module !== 'undefined' && module.exports) {
       return;
     }
     fetch(API_BASE + '/api/stats').then(function (r) { return r.json(); }).then(renderStats).catch(function () {});
-    fetch(API_BASE + '/api/leaderboard?limit=50').then(function (r) { return r.json(); }).then(function (d) {
-      renderLb(d.leaderboard);
+    fetch(API_BASE + '/api/stats').then(function (r) { return r.json(); }).then(function (s) { renderStats(s); var maxPage = Math.max(1, Math.ceil((s.players || 0) / 50)); var prev = $('btnPrevPage'), next = $('btnNextPage'); if (prev) prev.style.display = page > 1 ? 'inline-block' : 'none'; if (next) next.style.display = page < maxPage ? 'inline-block' : 'none'; }).catch(function () {});
+    fetch(API_BASE + '/api/leaderboard?limit=' + (page * 50)).then(function (r) { return r.json(); }).then(function (d) {
+            var all = d.leaderboard || [];
+      var startIdx = (page - 1) * 50;
+      renderLb(all.slice(startIdx, startIdx + 50).map(function (r, i) { r.rank = startIdx + i + 1; return r; }));
     }).catch(function () {
       var b = $('lbBody');
       if (b) b.innerHTML = '<tr><td colspan="8" class="lb-muted">leaderboard unreachable (offline?)</td></tr>';
@@ -1660,6 +1693,8 @@ if (typeof module !== 'undefined' && module.exports) {
   }
 
   $('btnRefreshLb').addEventListener('click', loadAll);
+  $('btnPrevPage').addEventListener('click', function () { if (page > 1) { page--; loadAll(); } });
+  $('btnNextPage').addEventListener('click', function () { page++; loadAll(); });
   renderNameChip();
   flushOutbox();
   loadAll();
