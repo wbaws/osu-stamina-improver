@@ -707,7 +707,7 @@ function goIdle(msgText) {
   sp = { bpm: sp.bpm, ur: sp.ur, notes: effectiveNotes(sp.notes, !!sp.burst, _rb), burst: !!sp.burst };
   applyTheme(L);
   S.levelNum = L; S.spec = sp;
-  updateRebirthBtn(L);
+  if (typeof updateRebirthBtn === 'function') { try { updateRebirthBtn(L); } catch (eRb) {} }   // defined in the module block
   $('levelInfo').innerHTML =
     '<div class="level-num">Level <b>' + L + '</b>' + (sp.burst ? '<span class="burst">BURST</span>' : '') + '</div>' +
     '<div class="level-stats">target <b>' + (sp.burst ? round1(sp.bpm) : sp.bpm) + ' bpm</b> · UR &lt; <b>' + sp.ur + '</b> · <b>' + sp.notes + ' notes</b></div>';
@@ -966,7 +966,7 @@ function showTestResult() {
       }
     }).catch(function () {});
   }
-  updateRebirthBtn(store.level);
+  if (typeof updateRebirthBtn === 'function') { try { updateRebirthBtn(store.level); } catch (eRb2) {} }
   $('levelInfo').innerHTML =
     '<div class="level-num">Test results</div>' +
     '<div class="level-stats">you streamed <b>' + Math.round(avgBpm) + ' bpm</b> avg · UR <b>' + Math.round(avgUr) + '</b> avg</div>';
@@ -1335,6 +1335,7 @@ if (typeof module !== 'undefined' && module.exports) {
       loadAll();
     });
   };
+  window.updateRebirthBtn = updateRebirthBtn;   // game block calls this cross-block
   function updateRebirthBtn(level) {
     var b = $('btnRebirth');
     if (!b) return;
