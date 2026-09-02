@@ -693,6 +693,7 @@ function goIdle(msgText) {
   sp = { bpm: sp.bpm, ur: sp.ur, notes: effectiveNotes(sp.notes, !!sp.burst, _rb), burst: !!sp.burst };
   applyTheme(L);
   S.levelNum = L; S.spec = sp;
+  updateRebirthBtn(L);
   $('levelInfo').innerHTML =
     '<div class="level-num">Level <b>' + L + '</b>' + (sp.burst ? '<span class="burst">BURST</span>' : '') + '</div>' +
     '<div class="level-stats">target <b>' + (sp.burst ? round1(sp.bpm) : sp.bpm) + ' bpm</b> · UR &lt; <b>' + sp.ur + '</b> · <b>' + sp.notes + ' notes</b></div>';
@@ -947,6 +948,7 @@ function showTestResult() {
       }
     }).catch(function () {});
   }
+  updateRebirthBtn(store.level);
   $('levelInfo').innerHTML =
     '<div class="level-num">Test results</div>' +
     '<div class="level-stats">you streamed <b>' + Math.round(avgBpm) + ' bpm</b> avg · UR <b>' + Math.round(avgUr) + '</b> avg</div>';
@@ -1319,7 +1321,8 @@ if (typeof module !== 'undefined' && module.exports) {
     if (!b) return;
     var req = 50 + (myRebirths || 0) * 10;
     b.textContent = 'rebirth (lvl' + req + ')';
-    b.style.display = (level !== undefined && level >= req) ? 'inline-block' : 'none';
+    var lv = (level !== undefined) ? level : (store && store.level) || 0;
+    b.style.display = (lv >= req) ? 'inline-block' : 'none';
   }
   function doRebirth() {
     if (!myName) return;
