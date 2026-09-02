@@ -1307,6 +1307,7 @@ if (typeof module !== 'undefined' && module.exports) {
       var st = $('lbStatus');
       if (st) st.textContent = 'score submitted (level ' + data.level + ')';
       updateRebirthBtn(data.level);
+      flushOutbox();
       loadAll();
     }).catch(function (err) {
       console.warn('[osi] submit failed', err);
@@ -1343,12 +1344,19 @@ if (typeof module !== 'undefined' && module.exports) {
     var b = $('btnRebirth');
     if (!b) return;
     var req = 50 + (myRebirths || 0) * 10;
-    b.textContent = 'rebirth (lvl' + req + ')';
+    b.textContent = 'rebirth (requirement lvl' + req + ')';
     var lv = (level !== undefined) ? level : (store && store.level) || 0;
     b.style.display = (lv >= req) ? 'inline-block' : 'none';
   }
   function doRebirth() {
-    if (!myName) return;
+    if (!myName) {
+      askName('').then(function (v) {
+        if (!v) return;
+        setName(v);
+        doRebirth();
+      });
+      return;
+    }
     var req = 50 + (myRebirths || 0) * 10;
     if (!confirm('Rebirth? Your level and best score reset to 0 (total taps are KEPT). In exchange, every level gets slightly easier: notes shrink 3% per rebirth (bursts bottom out at 5) and your placement gets +3% stronger. Requirement: level ' + req + '+.')) return;
     fetch(API_BASE + '/api/rebirth', {
@@ -1370,7 +1378,9 @@ if (typeof module !== 'undefined' && module.exports) {
     }).catch(function (err) {
       console.warn('[osi] rebirth failed', err);
       var st = $('lbStatus');
-      if (st) st.textContent = 'rebirth failed: ' + err.message;
+      if (st) st.textContent = 'rebirth failed: ' + err.message + ' - syncing your progress, try again in a few seconds';
+      flushOutbox();   // pending clears may raise the server level enough to unlock
+      loadAll();       // re-sync button + level display with server truth
     });
   }
   var rbBtn = $('btnRebirth');
