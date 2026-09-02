@@ -197,8 +197,7 @@ export default {
         e.rank = i + 1;
         e.rebirths = r.rebirths || 0;
         if (r.rc_at && r.rc_from !== null && r.rc_from !== undefined && r.rc_from !== r.rc_to) {
-          const age = Date.now() - Date.parse(r.rc_at);
-          if (age >= 0 && age <= 7 * 24 * 3600000) e.rc = { from: r.rc_from, to: r.rc_to, at: r.rc_at };
+          e.rc = { from: r.rc_from, to: r.rc_to, at: r.rc_at };   // served forever (last change per player)
         }
         return e;
       });

@@ -1494,7 +1494,7 @@ if (typeof module !== 'undefined' && module.exports) {
     return "";
   }
   function deltaHtml(r) {
-    if (r.rank > 10 || !r.rc) return "";   // server-computed last change, top 10 only
+    if (r.rank > 10 || !r.rc) return "";   // server-computed last change, top 10 only, stays forever
     var d = r.rc.from - r.rc.to;
     if (!d) return "";
     var UP = String.fromCharCode(0x25B2), DN = String.fromCharCode(0x25BC);
