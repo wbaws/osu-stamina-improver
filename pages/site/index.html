@@ -162,6 +162,11 @@
   .g-lvl-300{ background:linear-gradient(90deg,#00c8ff,#4d00ff); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
   .g-lvl-350{ background:linear-gradient(90deg,#ff0066,#ffb300); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
   .g-bpm-hot{ background:linear-gradient(90deg,#6d6d6d,#800000); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
+  .g-bpm-500x{ background:linear-gradient(90deg,#ff00cc,#00c3ff,#ffee00,#ff00cc); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800; }
+  .g-bpm-550{ background:linear-gradient(90deg,#00ffc8,#ff00cc,#ffe600); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800; }
+  .g-bpm-600{ background:linear-gradient(90deg,#ff206e,#41ead4,#fbff12); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800; }
+  .g-bpm-hot2{ background:linear-gradient(90deg,#2b2b2b,#800000,#ff3d00); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800; }
+  .wysi{ color:#ff9100; font-weight:800; font-size:10.5px; }
   .g-ur-sweet{ background:linear-gradient(90deg,#39ff14,#2e8b57); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
   .g-ur-cold{ background:linear-gradient(90deg,#39ff14,#0a0a0a,#b3e5fc); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
   .rc-up{ color:#2bff7c; font-weight:800; font-size:11px; margin-right:3px; }
@@ -175,6 +180,10 @@
   .rb-D{ background:linear-gradient(90deg,#f7971e,#ffd200,#b06ab3); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800; }
   .rb-M{ background:linear-gradient(90deg,#ee0979,#ff6a00,#ffe259,#00c9ff); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800; }
   .rb-cell{ font-size:15px; letter-spacing:1px; }
+  .g-lvl-500{ background:linear-gradient(90deg,#ff512f,#dd2476,#7b2ff7); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800; }
+  .g-lvl-727{ background:linear-gradient(90deg,#ffd452,#ff9100,#ff2e63,#8338ec); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800; }
+  .g-lvl-1000{ background:linear-gradient(90deg,#f80759,#ff5f6d,#ffc371,#00d2ff); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800; }
+  .g-lvl-1500{ background:linear-gradient(90deg,#ff00cc,#3333ff 30%,#00ffcc 60%,#ffe600); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800; }
   .g-fresh{ background:linear-gradient(90deg,#ffe97a,#1a1a1a); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:600; }
   .g-bpm-150{ background:linear-gradient(90deg,#5a8dd6,#c3d7ff); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:600; }
   .g-bpm-200{ background:linear-gradient(90deg,#2196f3,#8be9fd); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:600; }
@@ -1457,6 +1466,10 @@ if (typeof module !== 'undefined' && module.exports) {
   }
 
   function tierClass(L) {
+    if (L >= 1500) return 'g-lvl-1500';
+    if (L >= 1000) return 'g-lvl-1000';
+    if (L >= 727) return 'g-lvl-727';
+    if (L >= 500) return 'g-lvl-500';
     if (L >= 350) return 'g-lvl-350';
     if (L >= 300) return 'g-lvl-300';
     if (L >= 250) return 'g-lvl-250';
@@ -1473,8 +1486,11 @@ if (typeof module !== 'undefined' && module.exports) {
   }
   function bpmClass(b) {
     if (!(b > 0)) return '';
-    if (b > 530) return 'g-bpm-hot';
-    if (b >= 500) return 'g-bpm-500';
+    if (b > 700) return 'g-bpm-hot2';
+    if (b >= 650) return 'g-bpm-hot';   // grey/maroon cap from 650 (was 530)
+    if (b >= 600) return 'g-bpm-600';
+    if (b >= 550) return 'g-bpm-550';
+    if (b >= 500) return 'g-bpm-500x';   // the community-favorite gradient, extended to 650
     if (b >= 450) return 'g-bpm-450';
     if (b >= 400) return 'g-bpm-400';
     if (b >= 350) return 'g-bpm-350';
@@ -1504,6 +1520,12 @@ if (typeof module !== 'undefined' && module.exports) {
     // heuristic: UR far too perfect for the bpm tier (under 0.35% of bpm, floor 3)
     if (!(r.bpm > 0) || !(r.ur > 0)) return false;
     return r.ur < 15;
+  }
+  function wysi(v) {
+    // osu! community joke: any value containing 727 / 72.7 / 7.27 gets flagged (WYSI = when you see it)
+    if (v === undefined || v === null) return '';
+    var s = String(v).replace(',', '.');
+    return (s.indexOf('727') !== -1 || s.indexOf('72.7') !== -1 || s.indexOf('7.27') !== -1) ? ' <span class="wysi" title="WYSI - when you see it">(WYSI)</span>' : '';
   }
   function dksSuspicion(r) {
     return r.bpm > 567;
@@ -1567,9 +1589,9 @@ if (typeof module !== 'undefined' && module.exports) {
         '<td class="lb-rank">' + r.rank + '</td>' +
         '<td>' + esc(r.name) + ' ' + rankEmoji(r) + '</td>' +
         '<td class="rb-cell">' + (r.rebirths ? '<span class="' + rbClass(r.rebirths) + '">' + roman(r.rebirths) + '</span>' : '') + '</td>' +
-        '<td class="lb-lvl ' + tierClass(r.level) + '">' + (r.level > 0 ? r.level : '<span class="lb-noclear" title="no level cleared yet - the placement button places you, but only clears you make count">-</span>') + '</td>' +
-        '<td class="' + bpmClass(r.bpm) + '">' + fmt(r.bpm, 2) + (dksSuspicion(r) ? ' <span style="color:grey;font-size:11px">(DKS abuse?!!)</span>' : (autoclickerSuspicion(r) ? ' <span style="color:grey;font-size:11px">(autoclicker!??)</span>' : '')) + '</td>' +
-        '<td class="' + urClass(r.ur) + '">' + fmt(r.ur, 1) + '</td>' +
+        '<td class="lb-lvl ' + tierClass(r.level) + '">' + (r.level > 0 ? r.level + wysi(r.level) : '<span class="lb-noclear" title="no level cleared yet - the placement button places you, but only clears you make count">-</span>') + '</td>' +
+        '<td class="' + bpmClass(r.bpm) + '">' + fmt(r.bpm, 2) + wysi(r.bpm) + (dksSuspicion(r) ? ' <span style="color:grey;font-size:11px">(DKS abuse?!!)</span>' : (autoclickerSuspicion(r) ? ' <span style="color:grey;font-size:11px">(autoclicker!??)</span>' : '')) + '</td>' +
+        '<td class="' + urClass(r.ur) + '">' + fmt(r.ur, 1) + wysi(r.ur) + '</td>' +
         '<td class="' + tapsClass(r.totalTaps) + '">' + fmt(r.totalTaps) + '</td>' +
         '<td class="lb-when ' + freshClass(r.bestAt || r.lastSeen) + '" title="' + esc(new Date(r.bestAt || r.lastSeen || Date.now()).toLocaleString()) + '">' + ago(r.bestAt || r.lastSeen) + '</td>' +
         '</tr>';
