@@ -647,13 +647,23 @@ function hasChart() {
 }
 function clearChart() {
   S.chartData = [];
+  if (!S.chartUrData) S.chartUrData = [];
+  S.chartUrData.length = 0;
   $('chartContainer').innerHTML = '';
   if (hasChart()) renderChart();
+}
+function currentUr(count, times) {
+  if (count < 3) return 0;
+  const slice = times.slice(Math.max(0, count - 80), count);   // recent window keeps it responsive
+  const r = analyze(slice);
+  return r.ur || 0;
 }
 function addChartPoint() {
   const c = S.count, elapsed = S.times[c - 1];
   if (c < 2 || elapsed <= 0) return;
   S.chartData.push({ x: elapsed / 1000, y: cumulativeBpm(c, elapsed) });   // time in seconds
+  if (!S.chartUrData) S.chartUrData = [];
+  S.chartUrData.push({ x: elapsed / 1000, y: Math.round(currentUr(c, S.times) * 10) / 10 });
   renderChart();
 }
 function renderChart() {
@@ -662,10 +672,14 @@ function renderChart() {
     zoomEnabled: true,
     exportEnabled: true,
     animationEnabled: false,
-    title: { text: 'Stream Speed (cumulative bpm)' },
+    title: { text: 'Stream Speed (cumulative bpm) · UR (right axis)' },
     axisX: { title: 'time (s)' },
     axisY: { title: 'bpm', minimum: 0 },
-    data: [{ type: 'spline', dataPoints: S.chartData.slice() }]
+    axisY2: { title: 'UR', minimum: 0, lineColor: '#cc0444', labelFontColor: '#cc0444' },
+    data: [
+      { type: 'spline', dataPoints: S.chartData.slice() },
+      { type: 'spline', axisYType: 'secondary', lineColor: '#cc0444', markerSize: 0, dataPoints: (S.chartUrData || []).slice() }
+    ]
   });
 }
 
@@ -784,9 +798,9 @@ function finishRun() {
     S.benchResults.push({ bpm: r.bpm, ur: r.ur });
     if (S.benchIdx + 1 < BENCHES.length) {
       setStatus('benchmark ' + (S.benchIdx + 1) + '/3 done — next up…');
-      S.timers.push(setTimeout(() => beginLevel(BENCHES[S.benchIdx + 1].bpm, S.benchIdx + 1), 1200));
+      S.timers.push(setTimeout(() => beginLevel(BENCHES[S.benchIdx + 1].bpm, S.benchIdx + 1), 600));
     } else {
-      S.timers.push(setTimeout(showTestResult, 1200));
+      S.timers.push(setTimeout(showTestResult, 600));
     }
     return;
   }
@@ -828,7 +842,11 @@ function finishRun() {
 
 function primaryAction() {
   if (S.state === 'break') { skipBreak(); return; }   // pressing continue/skip during the break = skip
-  if (S.mode === 'bench') { goIdle(); return; }   // not reachable in normal flow
+  if (S.mode === 'bench') {
+    if (S.benchIdx + 1 < BENCHES.length) { beginLevel(BENCHES[S.benchIdx + 1].bpm, S.benchIdx + 1); }
+    else { showTestResult(); }
+    return;
+  }
   if (S.mode === 'test') { beginLevel(store.level); return; }   // start placed level
   if ($('status').className.indexOf('good') >= 0) {
     beginLevel(store.level);   // pass without a break (<=3s): go to the next level
@@ -952,14 +970,15 @@ function showTestResult() {
   $('levelInfo').innerHTML =
     '<div class="level-num">Test results</div>' +
     '<div class="level-stats">you streamed <b>' + Math.round(avgBpm) + ' bpm</b> avg · UR <b>' + Math.round(avgUr) + '</b> avg</div>';
-  setStatus('hardest level you beat: ' + beaten + ' — you\'ll start at level ' + next, 'good');
+  setStatus('hardest level you beat: ' + beaten + ' — starting level ' + next + ' now…', 'good');
   setMsg('');
   $('advice').style.display = 'none';
   $('result').innerHTML =
     'Tap Speed: —<br>' +
     'Stream Speed: ' + Math.round(avgBpm * 100) / 100 + ' bpm (avg).<br>' +
     'Unstable Rate: ' + Math.round(avgUr * 1000) / 1000 + ' (avg).';
-  $('btnPrimary').textContent = 'start level ' + next + ' →';
+  $('btnPrimary').textContent = 'continue to level ' + next + ' →';
+  S.timers.push(setTimeout(() => beginLevel(store.level), 2600));   // auto-take completely: no button press needed
   setBtn('btnTest', false);
   setBtn('btnStop', false);
   setBtn('btnPrimary', true);
@@ -1556,6 +1575,7 @@ if (typeof module !== 'undefined' && module.exports) {
           if (!tr) return;
           var chip = document.createElement('div');
           chip.className = 'rc-chip';
+          chip.setAttribute('data-n', String(rowIdx));
           var rect = tr.getBoundingClientRect();
           chip.style.top = (rect.top - wrapRect.top + rect.height / 2) + 'px';
           chip.innerHTML = d > 0
@@ -1565,6 +1585,26 @@ if (typeof module !== 'undefined' && module.exports) {
         });
       }
     } catch (eChip) {}
+    try { setTimeout(function () {
+      var wrap2 = body.closest('.lb-wrap');
+      if (!wrap2) return;
+      var wrapRect2 = wrap2.getBoundingClientRect();
+      var idx2 = 0;
+      rows.slice(0, 10).forEach(function (r2) {
+        var tr2 = body.rows[idx2];
+        if (tr2 && r2.rc) {
+          var d2 = r2.rc.from - r2.rc.to;
+          if (d2) {
+            var chip2 = wrap2.querySelector('.rc-chip[data-n="' + idx2 + '"]');
+            if (chip2) {
+              var rect2 = tr2.getBoundingClientRect();
+              chip2.style.top = (rect2.top - wrapRect2.top + rect2.height / 2) + 'px';
+            }
+          }
+        }
+        idx2++;
+      });
+    }, 400); } catch (eChip2) {}
 
   }
 
