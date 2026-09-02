@@ -696,12 +696,14 @@ function showResult(r) {
     'Unstable Rate: ' + span(urOk) + (Math.round(r.ur * 100000) / 100000).toFixed(3) + (level ? '</span>' : '') + '.';
 }
 
+window.goIdle = goIdle;   // rebirth flow (module block) calls this cross-block
 function goIdle(msgText) {
   clearTimers();
   metroStop();
   S.state = 'idle'; S.mode = 'level';
   document.body.classList.remove('in-run');
   const L = store.level;
+  try { localStorage.setItem('osi_level', String(L)); localStorage.setItem('osi_best', String(store.best)); } catch (ePersist) {}   // keep reset across reloads
   var sp = levelSpec(L);
   var _rb = 0; try { _rb = parseInt(localStorage.getItem('osi_rebirths') || '0', 10) || 0; } catch (eRb) {}
   sp = { bpm: sp.bpm, ur: sp.ur, notes: effectiveNotes(sp.notes, !!sp.burst, _rb), burst: !!sp.burst };
@@ -711,6 +713,7 @@ function goIdle(msgText) {
   $('levelInfo').innerHTML =
     '<div class="level-num">Level <b>' + L + '</b>' + (sp.burst ? '<span class="burst">BURST</span>' : '') + '</div>' +
     '<div class="level-stats">target <b>' + (sp.burst ? round1(sp.bpm) : sp.bpm) + ' bpm</b> · UR &lt; <b>' + sp.ur + '</b> · <b>' + sp.notes + ' notes</b></div>';
+  if (msgText) { try { $('status').textContent = msgText; } catch (eMsg) {} }
   setBtn('btnBegin', true); setBtn('btnTest', true); $('btnTest').disabled = false; setBtn('btnReset', true);
   setBtn('btnStop', false); setBtn('btnPrimary', false); setBtn('btnMenu', false);
   setInputsDisabled(false);
