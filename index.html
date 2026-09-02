@@ -138,14 +138,16 @@
   .online{ max-width:680px; margin:22px auto 0; padding:0 14px; text-align:center; position:relative; z-index:2; }
   .online-stats{ display:flex; justify-content:center; gap:18px; flex-wrap:wrap; font-size:13.5px; opacity:.95; margin:6px 0 12px; }
   .online-stats b{ font-weight:700; }
-  .lb-wrap{ overflow-x:auto; border:1px solid var(--border); border-radius:8px; background:var(--well); }
+  .lb-wrap{ position:relative; overflow-x:hidden; border:1px solid var(--border); border-radius:8px; background:var(--well); }
   /* rank-change chips: outside the table, aligned to their row */
   .lb-wrap{ position:relative; }
   .rc-chip{ position:absolute; left:-58px; width:52px; text-align:right; font-size:11.5px; font-weight:800; pointer-events:none; }
   .rc-chip .up{ color:#2bff7c; }
   .rc-chip .down{ color:#ff5f5f; }
 
-  .lb-table{ width:calc(100% - 58px); margin-left:58px; border-collapse:collapse; font-size:14px; }
+  .lb-table{ width:calc(100% - 58px); margin-left:58px; border-collapse:collapse; font-size:13px; }
+  .lb-table th{ padding:7px 6px; }
+  .lb-table td{ padding:6px 6px; }
   .lb-table th{ font-size:12px; letter-spacing:.6px; text-transform:uppercase; opacity:.75; padding:8px 10px; border-bottom:1px solid var(--border); }
   .lb-table td{ padding:7px 10px; border-bottom:1px solid var(--border); }
   .lb-table tr:last-child td{ border-bottom:none; }
@@ -167,6 +169,7 @@
   .g-bpm-600{ background:linear-gradient(90deg,#ff206e,#41ead4,#fbff12); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800; }
   .g-bpm-hot2{ background:linear-gradient(90deg,#2b2b2b,#800000,#ff3d00); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800; }
   .wysi{ background:linear-gradient(90deg,#000000 0%,#ffffff 38%,#8a2be2 62%,#000000 100%); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800; font-size:10.5px; }
+  .wydsi{ background:linear-gradient(90deg,#1a1a2e 0%,#cdd7e0 45%,#8ab4d8 65%,#1a1a2e 100%); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800; font-size:10.5px; }
   .sixseven{ background:linear-gradient(90deg,#ff6a00,#ffd000,#ff6a00); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800; font-size:10.5px; }
   .rwfr{ color:#8a2be2; font-weight:800; font-size:10.5px; }
   .g-ur-sweet{ background:linear-gradient(90deg,#39ff14,#2e8b57); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
@@ -232,6 +235,11 @@
     body.in-run.touchdev #tapZone{ display:block; }
   }
   @media (max-width:640px){
+    .lb-table{ width:calc(100% - 40px); margin-left:40px; font-size:11.5px; }
+    .lb-table th{ padding:5px 4px; }
+    .lb-table td{ padding:4px 4px; }
+    .rc-chip{ left:4px; width:32px; font-size:10px; }
+
     .page-header h1{ font-size:23px; }
     .result{ font-size:16px; }
     .traj{ right:12px; left:12px; transform:none; top:auto; bottom:14px; margin:0 auto; max-width:340px; }
@@ -1537,6 +1545,7 @@ if (typeof module !== 'undefined' && module.exports) {
     text = String(text).replace(/,/g, ".");
     var digits = text.replace(/[^0-9]/g, "");
     if (text.indexOf("727") !== -1 || text.indexOf("72.7") !== -1 || text.indexOf("7.27") !== -1 || text.indexOf("7/27") !== -1 || digits.indexOf("727") !== -1) out += badge("WYSI", "wysi", "WYSI - when you see it");
+    if (text.indexOf("726") !== -1 || text.indexOf("72.6") !== -1 || text.indexOf("7.26") !== -1 || text.indexOf("7/26") !== -1 || digits.indexOf("726") !== -1) out += badge("WYDSI", "wydsi", "WYDSI - when you see it... 726");
     if (text.indexOf("67") !== -1 || text.indexOf("6.7") !== -1 || text.indexOf(".67") !== -1 || text.indexOf("6/7") !== -1 || digits.indexOf("67") !== -1) out += badge("Six Sevenn", "sixseven", "six sevennnn");
     return out;
   }
