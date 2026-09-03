@@ -1548,34 +1548,47 @@ if (typeof module !== 'undefined' && module.exports) {
   }
       /* meme badges: WYSI (727) and Six Seven (67), plus (r we fr) for absurd URs.
      decimal checks only count 2 digits past the point (no hidden 727s in raw floats). */
-  function badge(s, cls, title) {
+    function badge(s, cls, title) {
     return ' <span class="' + cls + '" title="' + title + '">(' + s + ')</span>';
   }
-  function memesFor(text) {
-    var out = "";
-    if (!text) return out;
-    text = String(text).replace(/,/g, ".");
-    var digits = text.replace(/[^0-9]/g, "");
-    if (text.indexOf("727") !== -1 || text.indexOf("72.7") !== -1 || text.indexOf("7.27") !== -1 || text.indexOf("7/27") !== -1 || digits.indexOf("727") !== -1) out += badge("WYSI", "wysi", "WYSI - when you see it");
-    if (text.indexOf("726") !== -1 || text.indexOf("72.6") !== -1 || text.indexOf("7.26") !== -1 || text.indexOf("7/26") !== -1 || digits.indexOf("726") !== -1) out += badge("WYDSI", "wydsi", "WYDSI - when you see it... 726");
-    if (text.indexOf("67") !== -1 || text.indexOf("6.7") !== -1 || text.indexOf(".67") !== -1 || text.indexOf("6/7") !== -1 || digits.indexOf("67") !== -1) out += badge("Six Sevenn", "sixseven", "six sevennnn");
+  /* badges only see what the leaderboard displays: numbers are limited to 2
+     decimals ROUNDED like the display (toFixed), never truncated, never raw
+     float digit soup. Dates scan calendar date plus 12-hour hh:mm only:
+     seconds and AM/PM never participate in a match. */
+  function limit2(v) {
+    var f = Number(v);
+    if (!isFinite(f)) return '';
+    return f.toFixed(2);
+  }
+  function wysi(v) {
+    var s = limit2(v);
+    if (!s) return '';
+    var out = '';
+    if (s.indexOf('727') !== -1 || s.indexOf('72.7') !== -1 || s.indexOf('7.27') !== -1) out += badge('WYSI', 'wysi', 'WYSI - when you see it');
+    if (s.indexOf('726') !== -1 || s.indexOf('72.6') !== -1 || s.indexOf('7.26') !== -1) out += badge('WYDSI', 'wydsi', 'WYDSI - when you see it... 726');
+    if (s.indexOf('67') !== -1 || s.indexOf('6.7') !== -1 || s.indexOf('.67') !== -1) out += badge('Six Sevenn', 'sixseven', 'six sevennnn');
     return out;
   }
-  function limit2(v) {
-    if (v === undefined || v === null) return "";
-    var s = String(v).replace(/,/g, ".");
-    var m = s.match(/^(\d+)\.?(\d*)/);
-    if (!m) return "";
-    return m[1] + (m[2] ? "." + m[2].slice(0, 2) : "");   // only 2 decimals count
-  }
-  function wysi(v) { return memesFor(limit2(v)); }
   function wysiDate(ts) {
-    if (!ts) return "";
-    try { return memesFor(new Date(ts).toLocaleString()); } catch (eW) { return ""; }
+    if (!ts) return '';
+    try {
+      var d = new Date(ts);
+      var dateStr = (d.getMonth() + 1) + '/' + d.getDate() + '/' + d.getFullYear();
+      var h12 = d.getHours() % 12;
+      if (h12 === 0) h12 = 12;
+      var mm = d.getMinutes();
+      var timeSoup = h12 + (mm < 10 ? '0' + mm : '' + mm);
+      var s = dateStr + ' ' + timeSoup;
+      var out = '';
+      if (s.indexOf('727') !== -1 || dateStr.indexOf('7/27') !== -1) out += badge('WYSI', 'wysi', 'WYSI - when you see it');
+      if (s.indexOf('726') !== -1 || dateStr.indexOf('7/26') !== -1) out += badge('WYDSI', 'wydsi', 'WYDSI - when you see it... 726');
+      if (s.indexOf('67') !== -1 || dateStr.indexOf('6/7') !== -1) out += badge('Six Sevenn', 'sixseven', 'six sevennnn');
+      return out;
+    } catch (eW) { return ''; }
   }
   function urWeFr(ur) {
-    if (!(ur > 0) || ur >= 20) return "";
-    return badge("r we fr", "rwfr", "UR below 20: r we fr?");
+    if (!(ur > 0) || ur >= 20) return '';
+    return badge('r we fr', 'rwfr', 'UR below 20: r we fr?');
   }
   function dksSuspicion(r) {
     return r.bpm > 567;
