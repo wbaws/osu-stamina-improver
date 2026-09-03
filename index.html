@@ -544,230 +544,12 @@ const store = {
   set tested(v) { try { localStorage.setItem('osi_tested', v ? '1' : '0'); } catch (e) {} }
 };
 
-/* ---------------- audio (osu! hitwhistle sounds) ---------------- */
-let actx = null;
-function ensureAudio() {
-  if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
-  if (actx.state === 'suspended') actx.resume();
-  return actx;
-}
-function beepAt(time, freq, dur, vol) {
-  try {
-    const o = actx.createOscillator(), g = actx.createGain();
-    o.type = 'square'; o.frequency.value = freq;
-    g.gain.setValueAtTime(vol || 0.07, time);
-    g.gain.exponentialRampToValueAtTime(0.0001, time + (dur || 0.04));
-    o.connect(g); g.connect(actx.destination);
-    o.start(time); o.stop(time + (dur || 0.04) + 0.02);
-  } catch (e) {}
-}
-
-/* osu! hit sounds (drop the .ogg files next to index.html).
-   preferred: drum-hitnormal.ogg (soft) — falls back to soft-hitwhistle3.ogg,
-   then drum-hitwhistle.ogg, then a quiet beep. */
-const SND_ORDER = ['drum-hitnormal.ogg', 'soft-hitwhistle3.ogg', 'drum-hitwhistle.ogg'];
-let sndBest = null;
-function probeSound(src, okFn) {
-  try {
-    const a = new Audio(src);
-    a.preload = 'auto';
-    a.addEventListener('canplaythrough', () => okFn(true), { once: true });
-    a.addEventListener('error', () => okFn(false), { once: true });
-  } catch (e) { okFn(false); }
-}
-function initSounds() {
-  let done = false;
-  SND_ORDER.forEach(src => probeSound(src, ok => { if (ok && !done) { sndBest = src; done = true; } }));
-}
-function playAudio(src, vol) {
-  try {
-    const a = new Audio(src);
-    a.volume = vol;
-    const p = a.play();
-    if (p && p.catch) p.catch(() => {});
-  } catch (e) {}
-}
-/* ---------------- theme ---------------- */
-function applyTheme(L) {
-  const c = bgColorForLevel(L);
-  document.body.classList.remove('breakmode');
-  document.body.classList.toggle('dark', (0.299 * c.r + 0.587 * c.g + 0.114 * c.b) <= 150);
-  document.body.classList.remove('noanim');
-  document.body.style.setProperty('--bg', 'rgb(' + c.r + ',' + c.g + ',' + c.b + ')');
-}
-
-/* ---------------- state ---------------- */
-/* idle -> ready -> running -> doneLevel | doneTest | idle
-   break is an overlay screen between levels */
-const S = {
-  state: 'idle',
-  mode: 'level',            // level | bench | test
-  levelNum: 1,
-  spec: null,
-  count: 0,
-  times: [],                // ms offsets from first click
-  startTime: 0,
-  keys: { k1: 'z', k2: 'x' },
-  mouse: false,
-  benchIdx: 0,
-  benchResults: [],
-  timers: [],
-  breakInterval: 0,
-  chartData: []
-};
-function clearTimers() {
-  S.timers.forEach(clearTimeout); S.timers = [];
-  if (S.breakInterval) { clearInterval(S.breakInterval); S.breakInterval = 0; }
-}
-
-/* ---------------- controls ---------------- */
-function setBtn(id, visible) { $(id).style.display = visible ? '' : 'none'; }
-function setInputsDisabled(d) {
-  $('key1').disabled = d; $('key2').disabled = d;
-  $('mouseChk').disabled = d;
-}
-function setStatus(text, cls) {
-  const el = $('status');
-  el.textContent = text || '';
-  el.className = 'status' + (cls ? ' ' + cls : '');
-}
-function setMsg(text, cls) {
-  const el = $('msg');
-  el.textContent = text || '';
-  el.className = 'msg' + (cls ? ' ' + cls : '');
-}
-
-/* ---------------- chart ---------------- */
-function hasChart() {
-  return !!(window.jQuery && jQuery.fn && jQuery.fn.CanvasJSChart);
-}
-function clearChart() {
-  S.chartData = [];
-  if (!S.chartUrData) S.chartUrData = [];
-  S.chartUrData.length = 0;
-  $('chartContainer').innerHTML = '';
-  if (hasChart()) renderChart();
-}
-function currentUr(count, times) {
-  if (count < 3) return 0;
-  const slice = times.slice(Math.max(0, count - 80), count);   // recent window keeps it responsive
-  const r = analyze(slice);
-  return r.ur || 0;
-}
-function addChartPoint() {
-  const c = S.count, elapsed = S.times[c - 1];
-  if (c < 2 || elapsed <= 0) return;
-  S.chartData.push({ x: elapsed / 1000, y: cumulativeBpm(c, elapsed) });   // time in seconds
-  if (!S.chartUrData) S.chartUrData = [];
-  S.chartUrData.push({ x: elapsed / 1000, y: Math.round(currentUr(c, S.times) * 10) / 10 });
-  renderChart();
-}
-function renderChart() {
-  if (!hasChart()) return;
-  jQuery('#chartContainer').CanvasJSChart({
-    zoomEnabled: true,
-    exportEnabled: true,
-    animationEnabled: false,
-    title: { text: 'Stream Speed (cumulative bpm) · UR (right axis)' },
-    axisX: { title: 'time (s)' },
-    axisY: { title: 'bpm', minimum: 0 },
-    axisY2: { title: 'UR', minimum: 0, lineColor: '#cc0444', labelFontColor: '#cc0444' },
-    data: [
-      { type: 'spline', dataPoints: S.chartData.slice() },
-      { type: 'spline', axisYType: 'secondary', lineColor: '#cc0444', markerSize: 0, dataPoints: (S.chartUrData || []).slice() }
-    ]
-  });
-}
-
-/* ---------------- flow ---------------- */
-function showResult(r) {
-  const secs = r.elapsed ? (r.elapsed / 1000) : 0;
-  const level = S.mode === 'level';
-  const bpmOk = level && r.bpm >= S.spec.bpm;      // green above target, red below
-  const urOk = level && r.ur < S.spec.ur;          // green below max UR, red above
-  const span = ok => level ? (ok ? '<span class="good">' : '<span class="bad">') : '';
-  $('result').innerHTML =
-    'Tap Speed: ' + S.count + ' taps / ' + round1(secs) + ' seconds.<br>' +
-    'Stream Speed: ' + span(bpmOk) + (Math.round(r.bpm * 100) / 100) + (level ? '</span>' : '') + ' bpm.<br>' +
-    'Unstable Rate: ' + span(urOk) + (Math.round(r.ur * 100000) / 100000).toFixed(3) + (level ? '</span>' : '') + '.';
-}
-
-window.goIdle = goIdle;   // rebirth flow (module block) calls this cross-block
-function goIdle(msgText) {
-  clearTimers();
-  S.state = 'idle'; S.mode = 'level';
-  document.body.classList.remove('in-run');
-  const L = store.level;
-  try { localStorage.setItem('osi_level', String(L)); localStorage.setItem('osi_best', String(store.best)); } catch (ePersist) {}   // keep reset across reloads
-  var sp = levelSpec(L);
-  var _rb = 0; try { _rb = parseInt(localStorage.getItem('osi_rebirths') || '0', 10) || 0; } catch (eRb) {}
-  sp = { bpm: sp.bpm, ur: sp.ur, notes: effectiveNotes(sp.notes, !!sp.burst, _rb), burst: !!sp.burst };
-  applyTheme(L);
-  S.levelNum = L; S.spec = sp;
-  if (typeof updateRebirthBtn === 'function') { try { updateRebirthBtn(L); } catch (eRb) {} }   // defined in the module block
-  $('levelInfo').innerHTML =
-    '<div class="level-num">Level <b>' + L + '</b>' + (sp.burst ? '<span class="burst">BURST</span>' : '') + '</div>' +
-    '<div class="level-stats">target <b>' + (sp.burst ? round1(sp.bpm) : sp.bpm) + ' bpm</b> · UR &lt; <b>' + sp.ur + '</b> · <b>' + sp.notes + ' notes</b></div>';
-  if (msgText) { try { $('status').textContent = msgText; } catch (eMsg) {} }
-  setBtn('btnBegin', true); setBtn('btnTest', true); $('btnTest').disabled = false; setBtn('btnReset', true);
-  setBtn('btnStop', false); setBtn('btnPrimary', false); setBtn('btnMenu', false);
-  setInputsDisabled(false);
-  setStatus(msgText || 'Time starts when you make your first click.');
-  setMsg('');
-  $('advice').style.display = 'none';
-  $('result').innerHTML = 'Tap Speed: 0 taps / 0 seconds.<br>Stream Speed: 0 bpm.<br>Unstable Rate: 0.';
-  clearChart();
-}
-
-function beginLevel(L, benchIdx) {
-  clearTimers();
-  S.mode = benchIdx !== undefined ? 'bench' : 'level';
-  S.benchIdx = benchIdx !== undefined ? benchIdx : -1;
-  S.levelNum = L;
-  S.spec = benchIdx !== undefined
-    ? { bpm: BENCHES[benchIdx].bpm, ur: Infinity, notes: BENCHES[benchIdx].notes, burst: false }
-    : levelSpec(L);
-  if (!S.spec.burst) { S.spec = { bpm: S.spec.bpm, ur: S.spec.ur, notes: effectiveNotes(S.spec.notes, false, (function(){ try { return parseInt(localStorage.getItem('osi_rebirths') || '0', 10) || 0; } catch (eR) { return 0; } })()) }; } else { S.spec = { bpm: S.spec.bpm, ur: S.spec.ur, notes: effectiveNotes(S.spec.notes, true, (function(){ try { return parseInt(localStorage.getItem('osi_rebirths') || '0', 10) || 0; } catch (eR2) { return 0; } })()), burst: true }; }
-  S.count = 0; S.times = []; S.state = 'ready';
-  document.body.classList.add('in-run');
-  if (S.mode !== 'bench') applyTheme(L);   // benchmarks keep the current page color
-  const sp = S.spec;
-  if (S.mode === 'bench') {
-    $('levelInfo').innerHTML =
-      '<div class="level-num">Benchmark <b>' + (benchIdx + 1) + '/3</b></div>' +
-      '<div class="level-stats">stream <b>' + sp.notes + ' notes</b> at your own pace</div>';
-    setStatus('first click starts · no fail here, just stream ' + sp.notes + ' notes');
-  } else {
-    $('levelInfo').innerHTML =
-      '<div class="level-num">Level <b>' + L + '</b>' + (sp.burst ? '<span class="burst">BURST</span>' : '') + '</div>' +
-      '<div class="level-stats">target <b>' + (sp.burst ? round1(sp.bpm) : sp.bpm) + ' bpm</b> · UR &lt; <b>' + sp.ur + '</b> · <b>' + sp.notes + ' notes</b></div>';
-    setStatus('Notes: 0 / ' + sp.notes + ' · time starts on your first click');
-  }
-  setMsg('');
-  $('advice').style.display = 'none';
-  $('result').innerHTML = 'Tap Speed: 0 taps / 0 seconds.<br>Stream Speed: 0 bpm.<br>Unstable Rate: 0.';
-  setBtn('btnBegin', false); setBtn('btnTest', benchIdx === undefined); $('btnTest').disabled = true; setBtn('btnReset', false);
-  setBtn('btnStop', true); setBtn('btnPrimary', false); setBtn('btnMenu', false);
-  setInputsDisabled(true);
-  clearChart();
-}
-
-function stopTest() {
-  if (S.state === 'running' && S.mode === 'level' && S.times.length >= 2 && window.OSITaps) { try { window.OSITaps(S.count, analyze(S.times), S.times); } catch (e) {} }
-  clearChart();
-  goIdle('stopped — no judgment, no penalty.');
-}
-
-function playTickSound() {
-  if (sndBest) playAudio(sndBest, 0.22);   // benchmark clicks (no metronome fallback anymore)
-}
 function press() {
   if (S.state === 'ready') {
     S.state = 'running';
     S.startTime = performance.now();
     S.times.push(0);
     S.count = 1;
-    if (S.mode === 'bench') playTickSound();   // bench: every click plays the mp3 at whatever bpm you're doing
     showResult(analyze(S.times));
     addChartPoint();
     setStatus('Notes: 1 / ' + S.spec.notes + (S.mode === 'bench' ? ' · benchmark ' + (S.benchIdx + 1) + '/3' : ''));
@@ -779,7 +561,6 @@ function press() {
   const now = performance.now();
   S.count++;
   S.times.push(now - S.startTime);
-  if (S.mode === 'bench') playTickSound();
   showResult(analyze(S.times));
   addChartPoint();
   setStatus('Notes: ' + S.count + ' / ' + S.spec.notes + (S.mode === 'bench' ? ' · benchmark ' + (S.benchIdx + 1) + '/3' : ''));
@@ -1144,7 +925,6 @@ $('btnReset').addEventListener('click', () => {
 
 /* boot */
 loadOptions();
-initSounds();
 goIdle();
 
 } // end DOM guard
@@ -1529,9 +1309,7 @@ if (typeof module !== 'undefined' && module.exports) {
     if (dp === undefined || dp === null) dp = 2;
     return f.toFixed(dp);
   }
-  function wysi(v, dp) {
-    var s = limit2(v, dp);
-    if (!s) return '';
+  function memeScan(s) {
     var out = '';
     if (s.indexOf('727') !== -1 || s.indexOf('72.7') !== -1 || s.indexOf('7.27') !== -1) out += badge('WYSI', 'wysi', 'WYSI - when you see it');
     if (s.indexOf('726') !== -1 || s.indexOf('72.6') !== -1 || s.indexOf('7.26') !== -1) out += badge('WYDSI', 'wydsi', 'WYDSI - when you see it... 726');
@@ -1547,6 +1325,15 @@ if (typeof module !== 'undefined' && module.exports) {
     if (s.indexOf('1337') !== -1) out += badge('LEET', 'm-leet', '1337 - elite');
     if (s.indexOf('4444') !== -1) out += badge('trappin', 'm-trappin', '4444 - trappin');
     return out;
+  }
+  /* for pre-rendered display strings (total taps) - digits identical to what is shown */
+  function wysiStr(s) {
+    s = String(s == null ? '' : s);
+    return s ? memeScan(s) : '';
+  }
+  function wysi(v, dp) {
+    var s = limit2(v, dp);
+    return s ? memeScan(s) : '';
   }
   function wysiDate(ts) {
     if (!ts) return '';
@@ -1634,7 +1421,7 @@ if (typeof module !== 'undefined' && module.exports) {
         '<td class="lb-lvl ' + tierClass(r.level) + '">' + (r.level > 0 ? r.level + wysi(r.level, 0) : '<span class="lb-noclear" title="no level cleared yet - the placement button places you, but only clears you make count">-</span>') + '</td>' +
         '<td class="' + bpmClass(r.bpm) + '">' + fmt(r.bpm, 2) + wysi(r.bpm, 2) + (dksSuspicion(r) ? ' <span style="color:grey;font-size:11px">(DKS abuse?!!)</span>' : (autoclickerSuspicion(r) ? ' <span style="color:grey;font-size:11px">(autoclicker!??)</span>' : '')) + '</td>' +
         '<td class="' + urClass(r.ur) + '">' + fmt(r.ur, 1) + wysi(r.ur, 1) + urWeFr(r.ur) + '</td>' +
-        '<td class="' + tapsClass(r.totalTaps) + '">' + fmt(r.totalTaps) + '</td>' +
+        '<td class="' + tapsClass(r.totalTaps) + '">' + fmt(r.totalTaps) + wysi(r.totalTaps, 0) + '</td>' +
         '<td class="lb-when ' + freshClass(r.bestAt || r.lastSeen) + '" title="' + esc(new Date(r.bestAt || r.lastSeen || Date.now()).toLocaleString()) + '">' + ago(r.bestAt || r.lastSeen) + wysiDate(r.bestAt || r.lastSeen) + '</td>' +
         '</tr>';
     });
