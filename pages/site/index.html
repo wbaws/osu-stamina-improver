@@ -262,7 +262,6 @@
         <label>Key 2 <input id="key2" class="text-input" maxlength="2" value="X"></label>
       </div>
       <div class="ctrl-row">
-        <label><input type="checkbox" id="metroChk"> Metronome</label>
         <label><input type="checkbox" id="mouseChk"> Enable mouse buttons</label>
       </div>
     </div>
@@ -510,7 +509,7 @@ const BREAK_MSGS = [
   'breathe in, breathe out. you got this'
 ];
 const ADVICE = {
-  bpm: "You're under tempo. Tap along to the metronome for a few seconds before starting, and snap back to it on every note — if it feels heavy, grind a few levels down and come back.",
+  bpm: "You're under tempo. Tap along to a steady beat for a few seconds before starting, and snap back to it on every note — if it feels heavy, grind a few levels down and come back.",
   ur: "Slow down a touch and lock into a steady rhythm — consistency first, speed later. Keep your hand relaxed and let the keys bounce your fingers back up; you can't stream fast until you stream even."
 };
 const BENCHES = [
@@ -536,7 +535,7 @@ const store = {
   set tested(v) { try { localStorage.setItem('osi_tested', v ? '1' : '0'); } catch (e) {} }
 };
 
-/* ---------------- audio (accurate metronome with osu! hitwhistle sounds) ---------------- */
+/* ---------------- audio (osu! hitwhistle sounds) ---------------- */
 let actx = null;
 function ensureAudio() {
   if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
@@ -579,40 +578,6 @@ function playAudio(src, vol) {
     if (p && p.catch) p.catch(() => {});
   } catch (e) {}
 }
-function playTickSound() {
-  if (sndBest) playAudio(sndBest, 0.22);
-  else beepAt(metro.next, 880, 0.04, 0.04);
-}
-function playBeatSound() {
-  if (sndBest) playAudio(sndBest, 0.4);
-  else beepAt(metro.next, 660, 0.06, 0.06);
-}
-
-const metro = { enabled: true, timer: 0, next: 0, interval: 0, tickCount: 0, LOOKAHEAD: 0.12 };
-/* ticks at exactly the 1/4-note rate of the target bpm: interval = 15000/bpm ms,
-   accent (drum) on the first tick of every 4 (one beat) */
-function metroStart(bpm) {
-  metroStop();
-  if (!metro.enabled) return;
-  try {
-    ensureAudio();
-    metro.interval = 15000 / bpm / 1000;      // seconds per click
-    metro.next = actx.currentTime + 0.1;
-    metro.tickCount = 0;
-    metro.timer = setInterval(metroTick, 25);
-  } catch (e) {}
-}
-function metroTick() {
-  while (metro.next < actx.currentTime + metro.LOOKAHEAD) {
-    metro.tickCount++;
-    if (metro.tickCount % 4 === 1) playBeatSound(); else playTickSound();
-    metro.next += metro.interval;
-  }
-}
-function metroStop() {
-  if (metro.timer) { clearInterval(metro.timer); metro.timer = 0; }
-}
-
 /* ---------------- theme ---------------- */
 function applyTheme(L) {
   const c = bgColorForLevel(L);
@@ -650,7 +615,7 @@ function clearTimers() {
 function setBtn(id, visible) { $(id).style.display = visible ? '' : 'none'; }
 function setInputsDisabled(d) {
   $('key1').disabled = d; $('key2').disabled = d;
-  $('metroChk').disabled = d; $('mouseChk').disabled = d;
+  $('mouseChk').disabled = d;
 }
 function setStatus(text, cls) {
   const el = $('status');
@@ -721,7 +686,6 @@ function showResult(r) {
 window.goIdle = goIdle;   // rebirth flow (module block) calls this cross-block
 function goIdle(msgText) {
   clearTimers();
-  metroStop();
   S.state = 'idle'; S.mode = 'level';
   document.body.classList.remove('in-run');
   const L = store.level;
@@ -777,12 +741,10 @@ function beginLevel(L, benchIdx) {
   setBtn('btnStop', true); setBtn('btnPrimary', false); setBtn('btnMenu', false);
   setInputsDisabled(true);
   clearChart();
-  if (S.mode !== 'bench') metroStart(sp.bpm);   // no scheduled metronome in benchmarks — clicks speak for themselves
 }
 
 function stopTest() {
   if (S.state === 'running' && S.mode === 'level' && S.times.length >= 2 && window.OSITaps) { try { window.OSITaps(S.count, analyze(S.times), S.times); } catch (e) {} }
-  metroStop();
   clearChart();
   goIdle('stopped — no judgment, no penalty.');
 }
@@ -824,7 +786,6 @@ function playCelebration(bpm) {
   } catch (eAudio) {}
 }
 function finishRun() {
-  metroStop();
   S.state = 'done';
   document.body.classList.remove('in-run');
   const r = analyze(S.times);
@@ -895,7 +856,6 @@ function primaryAction() {
 /* ---------------- break ---------------- */
 function showBreak(secs) {
   clearTimers();
-  metroStop();
   S.state = 'break';
   document.body.classList.remove('in-run');
   $('breakMsg').textContent = BREAK_MSGS[Math.floor(Math.random() * BREAK_MSGS.length)];
@@ -967,7 +927,6 @@ function testMe() {
 }
 function showTestResult() {
   clearTimers();
-  metroStop();
   S.state = 'done';
   S.mode = 'test';
   document.body.classList.remove('in-run');
@@ -1119,17 +1078,15 @@ $('btnMenu').addEventListener('click', () => goIdle());
 $('breakSkip').addEventListener('click', skipBreak);
 
 /* key + option persistence */
-const key1El = $('key1'), key2El = $('key2'), metroEl = $('metroChk'), mouseEl = $('mouseChk');
+const key1El = $('key1'), key2El = $('key2'), mouseEl = $('mouseChk');
 function loadOptions() {
   try {
     S.keys.k1 = localStorage.getItem('osi_key1') || 'z';
     S.keys.k2 = localStorage.getItem('osi_key2') || 'x';
     S.mouse = localStorage.getItem('osi_mouse') === '1';
-    metro.enabled = localStorage.getItem('osi_metro') === '1';   // off by default
   } catch (e) {}
   key1El.value = S.keys.k1.toUpperCase();
   key2El.value = S.keys.k2.toUpperCase();
-  metroEl.checked = metro.enabled;
   mouseEl.checked = S.mouse;
 }
 key1El.addEventListener('input', () => {
@@ -1147,10 +1104,6 @@ key2El.addEventListener('input', () => {
   if (!v || /[\u0000-\u001f\u007f]/.test(v)) { key2El.value = S.keys.k2.toUpperCase(); return; }
   key2El.value = v.toUpperCase();
   S.keys.k2 = v; try { localStorage.setItem("osi_key2", v); } catch (e) {}
-});
-metroEl.addEventListener('change', () => {
-  metro.enabled = metroEl.checked;
-  try { localStorage.setItem('osi_metro', metro.enabled ? '1' : '0'); } catch (e) {}
 });
 mouseEl.addEventListener('change', () => {
   S.mouse = mouseEl.checked;
