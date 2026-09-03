@@ -1508,13 +1508,17 @@ if (typeof module !== 'undefined' && module.exports) {
      decimals ROUNDED like the display (toFixed), never truncated, never raw
      float digit soup. Dates scan calendar date plus 12-hour hh:mm only:
      seconds and AM/PM never participate in a match. */
-  function limit2(v) {
+  /* badges only see what the column displays: each call passes its own decimal
+     precision (bpm 2, ur 1, level 0), rounded exactly like the display. A digit
+     that is not rendered cannot trigger anything (baki 155.67 UR shows 155.7: clean). */
+  function limit2(v, dp) {
     var f = Number(v);
     if (!isFinite(f)) return '';
-    return f.toFixed(2);
+    if (dp === undefined || dp === null) dp = 2;
+    return f.toFixed(dp);
   }
-  function wysi(v) {
-    var s = limit2(v);
+  function wysi(v, dp) {
+    var s = limit2(v, dp);
     if (!s) return '';
     var out = '';
     if (s.indexOf('727') !== -1 || s.indexOf('72.7') !== -1 || s.indexOf('7.27') !== -1) out += badge('WYSI', 'wysi', 'WYSI - when you see it');
@@ -1605,9 +1609,9 @@ if (typeof module !== 'undefined' && module.exports) {
         '<td class="lb-rank">' + r.rank + '</td>' +
         '<td>' + esc(r.name) + ' ' + rankEmoji(r) + '</td>' +
         '<td class="rb-cell">' + (r.rebirths ? '<span class="' + rbClass(r.rebirths) + '">' + roman(r.rebirths) + '</span>' : '') + '</td>' +
-        '<td class="lb-lvl ' + tierClass(r.level) + '">' + (r.level > 0 ? r.level + wysi(r.level) : '<span class="lb-noclear" title="no level cleared yet - the placement button places you, but only clears you make count">-</span>') + '</td>' +
-        '<td class="' + bpmClass(r.bpm) + '">' + fmt(r.bpm, 2) + wysi(r.bpm) + (dksSuspicion(r) ? ' <span style="color:grey;font-size:11px">(DKS abuse?!!)</span>' : (autoclickerSuspicion(r) ? ' <span style="color:grey;font-size:11px">(autoclicker!??)</span>' : '')) + '</td>' +
-        '<td class="' + urClass(r.ur) + '">' + fmt(r.ur, 1) + wysi(r.ur) + urWeFr(r.ur) + '</td>' +
+        '<td class="lb-lvl ' + tierClass(r.level) + '">' + (r.level > 0 ? r.level + wysi(r.level, 0) : '<span class="lb-noclear" title="no level cleared yet - the placement button places you, but only clears you make count">-</span>') + '</td>' +
+        '<td class="' + bpmClass(r.bpm) + '">' + fmt(r.bpm, 2) + wysi(r.bpm, 2) + (dksSuspicion(r) ? ' <span style="color:grey;font-size:11px">(DKS abuse?!!)</span>' : (autoclickerSuspicion(r) ? ' <span style="color:grey;font-size:11px">(autoclicker!??)</span>' : '')) + '</td>' +
+        '<td class="' + urClass(r.ur) + '">' + fmt(r.ur, 1) + wysi(r.ur, 1) + urWeFr(r.ur) + '</td>' +
         '<td class="' + tapsClass(r.totalTaps) + '">' + fmt(r.totalTaps) + '</td>' +
         '<td class="lb-when ' + freshClass(r.bestAt || r.lastSeen) + '" title="' + esc(new Date(r.bestAt || r.lastSeen || Date.now()).toLocaleString()) + '">' + ago(r.bestAt || r.lastSeen) + wysiDate(r.bestAt || r.lastSeen) + '</td>' +
         '</tr>';
