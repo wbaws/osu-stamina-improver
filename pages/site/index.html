@@ -172,6 +172,15 @@
   .wydsi{ background:linear-gradient(90deg,#1a1a2e 0%,#cdd7e0 45%,#8ab4d8 65%,#1a1a2e 100%); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800; font-size:10.5px; }
   .sixseven{ background:linear-gradient(90deg,#ff6a00,#ffd000,#ff6a00); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800; font-size:10.5px; }
   .rwfr{ color:#8a2be2; font-weight:800; font-size:10.5px; }
+  .m-swag{ color:#7cb342; font-weight:800; font-size:10.5px; }
+  .m-nice{ color:#42a5f5; font-weight:800; font-size:10.5px; }
+  .m-evil{ color:#ef5350; font-weight:800; font-size:10.5px; }
+  .m-jackpot{ color:#ffd54f; font-weight:800; font-size:10.5px; }
+  .m-boss{ color:#ff7043; font-weight:800; font-size:10.5px; }
+  .m-bewb{ color:#f48fb1; font-weight:800; font-size:10.5px; }
+  .m-pewpew{ color:#4db6ac; font-weight:800; font-size:10.5px; }
+  .m-leet{ color:#00e676; font-weight:800; font-size:10.5px; }
+  .m-trappin{ color:#ba68c8; font-weight:800; font-size:10.5px; }
   .g-ur-sweet{ background:linear-gradient(90deg,#39ff14,#2e8b57); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
   .g-ur-cold{ background:linear-gradient(90deg,#39ff14,#0a0a0a,#b3e5fc); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700; }
   .rc-up{ color:#2bff7c; font-weight:800; font-size:11px; margin-right:3px; }
@@ -749,6 +758,9 @@ function stopTest() {
   goIdle('stopped — no judgment, no penalty.');
 }
 
+function playTickSound() {
+  if (sndBest) playAudio(sndBest, 0.22);   // benchmark clicks (no metronome fallback anymore)
+}
 function press() {
   if (S.state === 'ready') {
     S.state = 'running';
@@ -1524,6 +1536,16 @@ if (typeof module !== 'undefined' && module.exports) {
     if (s.indexOf('727') !== -1 || s.indexOf('72.7') !== -1 || s.indexOf('7.27') !== -1) out += badge('WYSI', 'wysi', 'WYSI - when you see it');
     if (s.indexOf('726') !== -1 || s.indexOf('72.6') !== -1 || s.indexOf('7.26') !== -1) out += badge('WYDSI', 'wydsi', 'WYDSI - when you see it... 726');
     if (s.indexOf('67') !== -1 || s.indexOf('6.7') !== -1 || s.indexOf('.67') !== -1) out += badge('Six Sevenn', 'sixseven', 'six sevennnn');
+    /* the extended extended universe */
+    if (s.indexOf('420') !== -1) out += badge('swag', 'm-swag', '420 - blaze it');
+    if (s.indexOf('69') !== -1) out += badge('nice', 'm-nice', '69 - nice');
+    if (s.indexOf('666') !== -1) out += badge('evil', 'm-evil', '666 - the number of the beast');
+    if (s.indexOf('777') !== -1) out += badge('jackpot', 'm-jackpot', '777 - jackpot!');
+    if (s.indexOf('8055') !== -1) out += badge('boss', 'm-boss', '8055 - calculator says BOSS');
+    if (s.indexOf('8008') !== -1) out += badge('bewb', 'm-bewb', '8008 - calculator humor');
+    if (s.indexOf('007') !== -1) out += badge('pewpew', 'm-pewpew', '007 - license to kill');
+    if (s.indexOf('1337') !== -1) out += badge('LEET', 'm-leet', '1337 - elite');
+    if (s.indexOf('4444') !== -1) out += badge('trappin', 'm-trappin', '4444 - trappin');
     return out;
   }
   function wysiDate(ts) {
